@@ -4,6 +4,7 @@ import { MapPin, Church, TreePine, Utensils, Hotel, ShoppingBag, Heart, X, Phone
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
+const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const PlaceImage = ({ src, category, name, style = {} }) => {
@@ -96,7 +97,108 @@ export default function ZghartaTourismApp() {
     </div>;
   };
 
-  const MapScreen = () => <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}><div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}><div style={{ padding: '24px 16px 16px' }}><h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Map', 'خريطة')}</h1></div></div><div style={{ height: 320, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 16, borderRadius: 16 }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Coming Soon', 'قريباً')}</p></div></div><div style={{ padding: '0 16px' }}><h2 style={{ fontSize: 18, fontWeight: 600, color: '#1f2937', marginBottom: 12 }}>{t('Locations', 'المواقع')}</h2>{places.slice(0, 5).map(p => <div key={p.id} onClick={() => setSelPlace(p)} style={{ background: 'white', borderRadius: 12, padding: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }}><div style={{ width: 40, height: 40, borderRadius: 8, background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MapPin style={{ width: 20, height: 20, color: '#059669' }} /></div><div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}><p style={{ fontWeight: 500, color: '#1f2937', fontSize: 14 }}>{isRTL ? p.nameAr : p.name}</p><p style={{ fontSize: 12, color: '#6b7280' }}>{p.village}</p></div><ChevronRight style={{ width: 20, height: 20, color: '#9ca3af', transform: isRTL ? 'rotate(180deg)' : 'none' }} /></div>)}</div></div>;
+  const MapScreen = () => {
+    const mapRef = React.useRef(null);
+    const mapInstanceRef = React.useRef(null);
+    const markersRef = React.useRef([]);
+    const [selectedMarker, setSelectedMarker] = useState(null);
+    const [mapLoaded, setMapLoaded] = useState(false);
+    const [mapFilter, setMapFilter] = useState('all');
+
+    const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.filter(b => b.category === 'restaurant' || b.category === 'hotel').map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
+    const filteredLocations = mapFilter === 'all' ? allLocations : allLocations.filter(l => l.category === mapFilter);
+
+    const markerColors = { religious: '#d97706', nature: '#16a34a', heritage: '#57534e', restaurant: '#dc2626', hotel: '#2563eb', shop: '#8b5cf6', cafe: '#f97316' };
+
+    useEffect(() => {
+      if (!GOOGLE_MAPS_KEY) return;
+      if (window.google?.maps) { setMapLoaded(true); return; }
+      const existing = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existing) { existing.addEventListener('load', () => setMapLoaded(true)); return; }
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setMapLoaded(true);
+      document.head.appendChild(script);
+    }, []);
+
+    useEffect(() => {
+      if (!mapLoaded || !mapRef.current || !window.google?.maps) return;
+      if (!mapInstanceRef.current) {
+        mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+          center: { lat: 34.3012, lng: 35.9876 },
+          zoom: 13,
+          styles: [
+            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+            { featureType: 'water', stylers: [{ color: '#c8e6f5' }] },
+            { featureType: 'landscape.natural', stylers: [{ color: '#e8f5e9' }] }
+          ],
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER }
+        });
+      }
+      // Clear old markers
+      markersRef.current.forEach(m => m.setMap(null));
+      markersRef.current = [];
+      // Add new markers
+      const bounds = new window.google.maps.LatLngBounds();
+      filteredLocations.forEach(loc => {
+        const pos = { lat: loc.coordinates.lat, lng: loc.coordinates.lng };
+        bounds.extend(pos);
+        const marker = new window.google.maps.Marker({
+          position: pos,
+          map: mapInstanceRef.current,
+          title: loc.name,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: markerColors[loc.category] || '#10b981',
+            fillOpacity: 0.9,
+            strokeColor: 'white',
+            strokeWeight: 2
+          }
+        });
+        marker.addListener('click', () => setSelectedMarker(loc));
+        markersRef.current.push(marker);
+      });
+      if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 50);
+      else if (filteredLocations.length === 1) { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
+    }, [mapLoaded, filteredLocations]);
+
+    return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
+        <div style={{ padding: '24px 16px 8px' }}><h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Map', 'خريطة')}</h1></div>
+        <div style={{ padding: '8px 16px 12px', overflowX: 'auto' }}><div style={{ display: 'flex', gap: 8 }}>{[{ id: 'all', l: t('All', 'الكل') }, { id: 'religious', l: t('Religious', 'ديني') }, { id: 'nature', l: t('Nature', 'طبيعة') }, { id: 'heritage', l: t('Heritage', 'تراث') }, { id: 'restaurant', l: t('Food', 'مطاعم') }, { id: 'hotel', l: t('Hotels', 'فنادق') }].map(c => <button key={c.id} onClick={() => { setMapFilter(c.id); setSelectedMarker(null); }} style={{ padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 500, border: mapFilter === c.id ? 'none' : '1px solid #e5e7eb', cursor: 'pointer', whiteSpace: 'nowrap', background: mapFilter === c.id ? '#10b981' : 'white', color: mapFilter === c.id ? 'white' : '#4b5563' }}>{c.l}</button>)}</div></div>
+      </div>
+      {GOOGLE_MAPS_KEY ? (
+        <div style={{ position: 'relative' }}>
+          <div ref={mapRef} style={{ height: 400, margin: 0 }} />
+          {selectedMarker && <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16, background: 'white', borderRadius: 16, padding: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }} onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }}>
+            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 56, height: 56, borderRadius: 12, flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}>
+              <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
+              <p style={{ fontSize: 13, color: '#6b7280' }}>{selectedMarker.village} · {selectedMarker.category}</p>
+            </div>
+            <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X style={{ width: 18, height: 18, color: '#9ca3af' }} /></button>
+          </div>}
+        </div>
+      ) : (
+        <div style={{ height: 320, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 16, borderRadius: 16 }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key to enable map', 'أضف مفتاح خرائط جوجل لتفعيل الخريطة')}</p></div></div>
+      )}
+      <div style={{ padding: '16px 16px 0' }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1f2937', marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }}>{t('Locations', 'المواقع')} <span style={{ fontSize: 14, fontWeight: 400, color: '#9ca3af' }}>({filteredLocations.length})</span></h2>
+        {filteredLocations.map(p => <div key={`${p.type}-${p.id}`} onClick={() => p.type === 'place' ? setSelPlace(p) : setSelBiz(p)} style={{ background: 'white', borderRadius: 12, padding: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: (markerColors[p.category] || '#10b981') + '20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MapPin style={{ width: 20, height: 20, color: markerColors[p.category] || '#059669' }} /></div>
+          <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}><p style={{ fontWeight: 500, color: '#1f2937', fontSize: 14 }}>{isRTL ? p.nameAr : p.name}</p><p style={{ fontSize: 12, color: '#6b7280' }}>{p.village}</p></div>
+          <ChevronRight style={{ width: 20, height: 20, color: '#9ca3af', transform: isRTL ? 'rotate(180deg)' : 'none' }} />
+        </div>)}
+      </div>
+    </div>;
+  };
 
   const FavsScreen = () => { const fP = places.filter(p => favs.places.includes(p.id)); const fB = businesses.filter(b => favs.businesses.includes(b.id)); const empty = fP.length === 0 && fB.length === 0; return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}><div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}><div style={{ padding: '24px 16px 16px' }}><h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Saved', 'المحفوظات')}</h1></div></div>{empty ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80 }}><Heart style={{ width: 64, height: 64, color: '#e5e7eb', marginBottom: 16 }} /><p style={{ color: '#6b7280' }}>{t('No saved yet', 'لا توجد محفوظات')}</p><button onClick={() => setTab('explore')} style={{ marginTop: 16, padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer' }}>{t('Explore', 'استكشف')}</button></div> : <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>{fP.map(p => <div key={p.id} onClick={() => setSelPlace(p)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: 96, height: 96, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? p.nameAr : p.name}</h3><p style={{ fontSize: 14, color: '#6b7280' }}>{p.village}</p></div></div>)}{fB.map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: 96, height: 96, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? b.nameAr : b.name}</h3><p style={{ fontSize: 14, color: '#6b7280' }}>{b.village}</p></div></div>)}</div>}</div>; };
 
