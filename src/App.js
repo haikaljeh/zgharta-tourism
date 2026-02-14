@@ -30,6 +30,7 @@ export default function ZghartaTourismApp() {
     catch { return { places: [], businesses: [] }; }
   });
   const [catFilter, setCatFilter] = useState('all');
+  const [mapVillageFilter, setMapVillageFilter] = useState('all');
   const [places, setPlaces] = useState([]);
   const [businesses, setBusinesses] = useState([]);
   const [events, setEvents] = useState([]);
@@ -200,7 +201,7 @@ export default function ZghartaTourismApp() {
           {['Ehden', 'Zgharta', 'Ardeh', 'Kfarsghab', 'Rachiine', 'Mejdlaya'].map(v => {
             const count = [...places, ...businesses].filter(i => i.village === v).length;
             const vPlace = places.find(p => p.village === v && p.image);
-            return <div key={v} onClick={() => setTab('map')} style={{ flexShrink: 0, width: 140, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            return <div key={v} onClick={() => { setMapVillageFilter(v); setTab('map'); }} style={{ flexShrink: 0, width: 140, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <PlaceImage src={vPlace?.image} category={vPlace?.category || 'nature'} name={v} style={{ width: '100%', height: 100 }} />
               <div style={{ padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
                 <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{v}</h4>
@@ -301,25 +302,33 @@ export default function ZghartaTourismApp() {
     const overlaysRef = React.useRef([]);
     const zoomTimerRef = React.useRef(null);
     const filteredLocsRef = React.useRef([]);
+    const renderRef = React.useRef(null);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapFilter, setMapFilter] = useState('all');
-    const lastFilterRef = React.useRef('all');
+    const villageFilter = mapVillageFilter;
+    const setVillageFilter = setMapVillageFilter;
+    const lastFilterRef = React.useRef('all|all');
     const initialFitDone = React.useRef(false);
 
     const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
-    const filteredLocations = mapFilter === 'all' ? allLocations : allLocations.filter(l => l.category === mapFilter);
+    const filteredLocations = allLocations.filter(l => (mapFilter === 'all' || l.category === mapFilter) && (villageFilter === 'all' || l.village === villageFilter));
 
-    const markerSvgs = {
-      religious: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2c0 1.1.9 2 2 2h5v5c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/></svg>`,
-      nature: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 22H7"/><path d="M12 22V12"/><path d="m8 9 4-7 4 7"/><path d="m6 14 6-5 6 5"/></svg>`,
-      heritage: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/><line x1="2" y1="18" x2="22" y2="18"/></svg>`,
-      restaurant: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
-      hotel: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`,
-      shop: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
-      cafe: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>`
+    // Get unique villages from data
+    const villages = [...new Set(allLocations.map(l => l.village))].sort();
+
+    const markerColors = { religious: '#b45309', nature: '#15803d', heritage: '#57534e', restaurant: '#dc2626', hotel: '#2563eb', shop: '#7c3aed', cafe: '#ea580c' };
+
+    // Tiny SVG icons for markers (10x10)
+    const tinyIcons = {
+      religious: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M12 2v20M5 9h14"/></svg>`,
+      nature: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="m8 9 4-7 4 7"/><path d="m6 15 6-6 6 6"/></svg>`,
+      heritage: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M4 22h16M12 2l8 6H4z"/></svg>`,
+      restaurant: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 2v7c0 1 1 2 2 2h4c1 0 2-1 2-2V2M7 2v20M21 15V2c-3 0-5 2-5 5v6c0 1 1 2 2 2h3v7"/></svg>`,
+      hotel: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M2 4v16M2 8h18c1 0 2 1 2 2v10M2 17h20"/></svg>`,
+      shop: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M6 2 3 6v14c0 1 1 2 2 2h14c1 0 2-1 2-2V6l-3-4z"/></svg>`,
+      cafe: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M17 8h1c2 0 4 2 4 4s-2 4-4 4h-1M3 8h14v9c0 2-2 4-4 4H7c-2 0-4-2-4-4Z"/></svg>`
     };
-    const markerColors = { religious: '#d97706', nature: '#16a34a', heritage: '#78716c', restaurant: '#dc2626', hotel: '#2563eb', shop: '#8b5cf6', cafe: '#ea580c' };
 
     useEffect(() => {
       if (!GOOGLE_MAPS_KEY) return;
@@ -352,10 +361,9 @@ export default function ZghartaTourismApp() {
           ]
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
-        // Re-render markers on zoom change for clustering
         mapInstanceRef.current.addListener('zoom_changed', () => {
           if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
-          zoomTimerRef.current = setTimeout(() => renderMarkers(), 150);
+          zoomTimerRef.current = setTimeout(() => { if (renderRef.current) renderRef.current(); }, 120);
         });
       }
 
@@ -364,37 +372,51 @@ export default function ZghartaTourismApp() {
       function renderMarkers() {
         overlaysRef.current.forEach(o => o.setMap(null));
         overlaysRef.current = [];
-
         const map = mapInstanceRef.current;
         if (!map) return;
         const zoom = map.getZoom();
         const locs = filteredLocsRef.current;
+        if (!locs.length) return;
 
-        // Adaptive clustering: always cluster, but with smaller radius at high zoom
-        // At zoom 15+: no clustering (show individual markers)
-        // At zoom 13-14: light clustering (nearby markers only)
-        // At zoom 12 and below: aggressive clustering
-        const SHOW_INDIVIDUAL = 15;
-        const clusterRadius = zoom >= 14 ? 0.003 : zoom >= 13 ? 0.008 : zoom >= 12 ? 0.02 : zoom >= 11 ? 0.04 : 0.08;
+        // Pixel-based clustering using the map projection
+        // At high zoom: no clustering. At low zoom: group markers that are close in pixel space.
+        const pixelRadius = zoom >= 16 ? 0 : zoom >= 15 ? 15 : zoom >= 14 ? 30 : zoom >= 13 ? 50 : zoom >= 12 ? 70 : 100;
 
-        // Always cluster first
         const clusters = [];
         const assigned = new Set();
+
+        // Convert all locs to approximate pixel positions for clustering
+        const scale = Math.pow(2, zoom);
+        const toPixel = (lat, lng) => {
+          const x = (lng + 180) / 360 * 256 * scale;
+          const sinLat = Math.sin(lat * Math.PI / 180);
+          const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * 256 * scale;
+          return { x, y };
+        };
+
+        const pixels = locs.map(l => toPixel(l.coordinates.lat, l.coordinates.lng));
+
         locs.forEach((loc, i) => {
           if (assigned.has(i)) return;
-          const cluster = { locs: [loc], lat: loc.coordinates.lat, lng: loc.coordinates.lng };
+          const cluster = { indices: [i], px: pixels[i].x, py: pixels[i].y };
           assigned.add(i);
-          locs.forEach((other, j) => {
-            if (assigned.has(j)) return;
-            if (Math.abs(loc.coordinates.lat - other.coordinates.lat) < clusterRadius &&
-                Math.abs(loc.coordinates.lng - other.coordinates.lng) < clusterRadius) {
-              cluster.locs.push(other);
-              assigned.add(j);
-            }
-          });
-          // Recalculate center
-          cluster.lat = cluster.locs.reduce((s, l) => s + l.coordinates.lat, 0) / cluster.locs.length;
-          cluster.lng = cluster.locs.reduce((s, l) => s + l.coordinates.lng, 0) / cluster.locs.length;
+          if (pixelRadius > 0) {
+            locs.forEach((_, j) => {
+              if (assigned.has(j)) return;
+              const dx = pixels[j].x - cluster.px;
+              const dy = pixels[j].y - cluster.py;
+              if (dx * dx + dy * dy < pixelRadius * pixelRadius) {
+                cluster.indices.push(j);
+                assigned.add(j);
+              }
+            });
+          }
+          // Average position
+          let latSum = 0, lngSum = 0;
+          cluster.indices.forEach(idx => { latSum += locs[idx].coordinates.lat; lngSum += locs[idx].coordinates.lng; });
+          cluster.lat = latSum / cluster.indices.length;
+          cluster.lng = lngSum / cluster.indices.length;
+          cluster.locs = cluster.indices.map(idx => locs[idx]);
           clusters.push(cluster);
         });
 
@@ -404,40 +426,36 @@ export default function ZghartaTourismApp() {
 
           overlay.onAdd = function () {
             const div = document.createElement('div');
-            div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.15s ease;z-index:1;';
+            div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.12s ease;z-index:1;';
 
-            if (cluster.locs.length === 1 || zoom >= SHOW_INDIVIDUAL) {
-              // Individual marker
+            if (cluster.locs.length === 1) {
+              // ---- INDIVIDUAL DOT MARKER ----
               const loc = cluster.locs[0];
               const color = markerColors[loc.category] || '#10b981';
-              const svg = markerSvgs[loc.category] || markerSvgs.religious;
+              const icon = tinyIcons[loc.category] || '';
               const isSaved = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
-              // Smaller markers: 32px at zoom 13-14, 36px at 15+
-              const size = zoom >= 15 ? 36 : 32;
-              const svgSmall = svg.replace(/width="20" height="20"/, `width="${zoom >= 15 ? 18 : 16}" height="${zoom >= 15 ? 18 : 16}"`);
-              div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:${size}px;height:${size}px;border-radius:50%;background:${isSaved ? '#fef3c7' : 'white'};border:2px solid ${isSaved ? '#f59e0b' : color};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.15);color:${color};">${svgSmall}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid ${isSaved ? '#f59e0b' : color};margin-top:-1px;"></div></div>`;
-              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15) translateY(-2px)'; div.style.zIndex = '999'; });
+              const dotSize = zoom >= 16 ? 26 : zoom >= 14 ? 22 : 18;
+              const borderCol = isSaved ? '#f59e0b' : color;
+              div.innerHTML = `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid ${isSaved ? '#f59e0b' : 'white'};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.3);">${dotSize >= 22 ? icon : ''}</div>`;
+              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.3)'; div.style.zIndex = '999'; });
               div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
               div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); map.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
             } else {
-              // Cluster bubble
+              // ---- CLUSTER BUBBLE ----
               const count = cluster.locs.length;
-              const size = count > 30 ? 52 : count > 15 ? 46 : count > 5 ? 40 : 36;
+              const size = count > 30 ? 44 : count > 10 ? 38 : count > 3 ? 32 : 28;
               const catCounts = {};
               cluster.locs.forEach(l => { catCounts[l.category] = (catCounts[l.category] || 0) + 1; });
               const dominant = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0];
               const color = markerColors[dominant] || '#10b981';
-              // Multi-category indicator: ring of dots
-              const cats = Object.keys(catCounts);
-              const multiColor = cats.length > 1;
-              div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);border:${multiColor ? '3px' : '2px'} solid ${multiColor ? 'white' : 'rgba(255,255,255,0.8)'};"><span style="color:white;font-weight:700;font-size:${count > 20 ? 15 : 13}px;text-shadow:0 1px 2px rgba(0,0,0,0.2);">${count}</span></div>`;
-              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.1)'; div.style.zIndex = '999'; });
+              div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:0.9;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);border:2px solid white;"><span style="color:white;font-weight:700;font-size:${count > 20 ? 13 : 11}px;">${count}</span></div>`;
+              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15)'; div.style.zIndex = '999'; });
               div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
               div.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const b = new window.google.maps.LatLngBounds();
                 cluster.locs.forEach(l => b.extend({ lat: l.coordinates.lat, lng: l.coordinates.lng }));
-                map.fitBounds(b, 80);
+                map.fitBounds(b, 60);
               });
             }
             this.div = div;
@@ -446,8 +464,8 @@ export default function ZghartaTourismApp() {
           overlay.draw = function () {
             const proj = this.getProjection();
             const p = proj.fromLatLngToDivPixel(pos);
-            const s = cluster.locs.length === 1 || zoom >= SHOW_INDIVIDUAL ? (zoom >= 15 ? 18 : 16) : (cluster.locs.length > 30 ? 26 : cluster.locs.length > 15 ? 23 : 20);
-            if (this.div) { this.div.style.left = (p.x - s) + 'px'; this.div.style.top = (p.y - s - (cluster.locs.length === 1 ? 8 : 0)) + 'px'; }
+            const half = cluster.locs.length === 1 ? (zoom >= 16 ? 13 : zoom >= 14 ? 11 : 9) : (cluster.locs.length > 30 ? 22 : cluster.locs.length > 10 ? 19 : 16);
+            if (this.div) { this.div.style.left = (p.x - half) + 'px'; this.div.style.top = (p.y - half) + 'px'; }
           };
           overlay.onRemove = function () { if (this.div) this.div.remove(); };
           overlay.setMap(map);
@@ -455,21 +473,22 @@ export default function ZghartaTourismApp() {
         });
       }
 
+      renderRef.current = renderMarkers;
       renderMarkers();
 
       // Fit bounds on filter change or initial load
-      if (filteredLocations.length > 0 && (!initialFitDone.current || lastFilterRef.current !== mapFilter)) {
+      const filterKey = `${mapFilter}|${villageFilter}`;
+      if (filteredLocations.length > 0 && (!initialFitDone.current || lastFilterRef.current !== filterKey)) {
         const bounds = new window.google.maps.LatLngBounds();
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
         initialFitDone.current = true;
-        lastFilterRef.current = mapFilter;
+        lastFilterRef.current = filterKey;
       }
-    }, [mapLoaded, mapFilter, favs]);
+    }, [mapLoaded, mapFilter, villageFilter, favs]);
 
     return <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
-      {/* Full screen map */}
       {GOOGLE_MAPS_KEY ? (
         <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
       ) : (
@@ -477,47 +496,60 @@ export default function ZghartaTourismApp() {
       )}
 
       {/* Search bar overlay */}
-      <div style={{ position: 'absolute', top: 16, left: 16, right: 16, zIndex: 10 }}>
-        <div style={{ background: 'white', borderRadius: 16, padding: '10px 14px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Search style={{ width: 18, height: 18, color: '#9ca3af', flexShrink: 0 }} />
-          <input type="text" placeholder={t('Search Zgharta Caza...', 'ابحث في قضاء زغرتا...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(15); } } }} />
-          <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 10px', background: '#f3f4f6', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#4b5563', flexShrink: 0 }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
+      <div style={{ position: 'absolute', top: 12, left: 12, right: 12, zIndex: 10 }}>
+        <div style={{ background: 'white', borderRadius: 14, padding: '8px 12px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Search style={{ width: 16, height: 16, color: '#9ca3af', flexShrink: 0 }} />
+          <input type="text" placeholder={t('Search Zgharta Caza...', 'ابحث في قضاء زغرتا...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, background: 'transparent' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
+          <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '3px 8px', background: '#f3f4f6', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#4b5563', flexShrink: 0 }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
         </div>
       </div>
 
-      {/* Filter pills overlay */}
-      <div style={{ position: 'absolute', top: 72, left: 0, right: 0, zIndex: 10, padding: '0 16px', overflowX: 'auto' }}>
-        <div style={{ display: 'flex', gap: 6 }}>{[
-          { id: 'all', l: t('All', 'الكل'), Icon: MapPin },
-          { id: 'religious', l: t('Religious', 'ديني'), Icon: Cross },
-          { id: 'nature', l: t('Nature', 'طبيعة'), Icon: TreePine },
-          { id: 'heritage', l: t('Heritage', 'تراث'), Icon: Landmark },
-          { id: 'restaurant', l: t('Food', 'مطاعم'), Icon: Utensils },
-          { id: 'hotel', l: t('Hotels', 'فنادق'), Icon: BedDouble },
-          { id: 'cafe', l: t('Cafes', 'مقاهي'), Icon: Coffee }
-        ].map(c => <button key={c.id} onClick={() => { setMapFilter(c.id); setSelectedMarker(null); }} style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: mapFilter === c.id ? '#10b981' : 'white', color: mapFilter === c.id ? 'white' : '#4b5563', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 5 }}><c.Icon style={{ width: 14, height: 14 }} />{c.l}</button>)}</div>
+      {/* Category filter pills */}
+      <div style={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: 10, padding: '0 12px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 5 }}>{[
+          { id: 'all', l: t('All', 'الكل') },
+          { id: 'religious', l: t('Religious', 'ديني') },
+          { id: 'nature', l: t('Nature', 'طبيعة') },
+          { id: 'heritage', l: t('Heritage', 'تراث') },
+          { id: 'restaurant', l: t('Food', 'طعام') },
+          { id: 'hotel', l: t('Hotels', 'فنادق') },
+          { id: 'cafe', l: t('Cafes', 'مقاهي') },
+          { id: 'shop', l: t('Shops', 'متاجر') }
+        ].map(c => <button key={c.id} onClick={() => { setMapFilter(c.id); setSelectedMarker(null); }} style={{ padding: '5px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: mapFilter === c.id ? '#10b981' : 'white', color: mapFilter === c.id ? 'white' : '#4b5563', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>{c.l}</button>)}</div>
       </div>
 
-      {/* Preview card when marker is selected */}
+      {/* Village filter pills */}
+      <div style={{ position: 'absolute', top: 86, left: 0, right: 0, zIndex: 10, padding: '0 12px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          <button onClick={() => { setVillageFilter('all'); setSelectedMarker(null); }} style={{ padding: '5px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: villageFilter === 'all' ? '#1f2937' : 'white', color: villageFilter === 'all' ? 'white' : '#6b7280', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>{t('All Villages', 'كل القرى')}</button>
+          {villages.map(v => {
+            const count = filteredLocations.filter(l => l.village === v).length;
+            if (mapFilter !== 'all' && count === 0) return null;
+            return <button key={v} onClick={() => { setVillageFilter(v); setSelectedMarker(null); }} style={{ padding: '5px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: villageFilter === v ? '#1f2937' : 'white', color: villageFilter === v ? 'white' : '#6b7280', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>{v}{mapFilter === 'all' ? '' : ` (${count})`}</button>;
+          })}
+        </div>
+      </div>
+
+      {/* Preview card */}
       {selectedMarker && <div style={{ position: 'absolute', bottom: 80, left: 12, right: 12, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
-        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 20, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
+        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
           <div style={{ display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 110, height: 110, flexShrink: 0 }} />
-            <div style={{ flex: 1, padding: 14, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                {React.createElement({ religious: Cross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee }[selectedMarker.category] || MapPin, { style: { width: 16, height: 16, color: markerColors[selectedMarker.category] || '#059669' } })}
-                <span style={{ fontSize: 12, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
+            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 100, height: 100, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: 12, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
+                <span style={{ fontSize: 11, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
               </div>
-              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 4, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
-              <p style={{ fontSize: 13, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}><MapPin style={{ width: 12, height: 12 }} />{selectedMarker.village}</p>
-              {selectedMarker.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span><span style={{ fontSize: 13, color: '#9ca3af' }}>{selectedMarker.priceRange}</span></div>}
+              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, marginBottom: 3, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
+              <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{selectedMarker.village}</p>
+              {selectedMarker.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}><Star style={{ width: 12, height: 12, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span><span style={{ fontSize: 12, color: '#9ca3af' }}>{selectedMarker.priceRange}</span></div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px' }}>
-              <ChevronRight style={{ width: 20, height: 20, color: '#9ca3af' }} />
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}>
+              <ChevronRight style={{ width: 18, height: 18, color: '#d1d5db' }} />
             </div>
           </div>
         </div>
-        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, background: 'rgba(0,0,0,0.06)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 14, height: 14, color: '#6b7280' }} /></button>
+        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, background: 'rgba(0,0,0,0.06)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 12, height: 12, color: '#6b7280' }} /></button>
       </div>}
       <style>{'@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }'}</style>
     </div>;
