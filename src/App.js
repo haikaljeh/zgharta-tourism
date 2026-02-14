@@ -161,7 +161,7 @@ export default function ZghartaTourismApp() {
       <div style={{ padding: '24px 16px 0' }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 14, textAlign: isRTL ? 'right' : 'left' }}>{t('Explore by Village', 'استكشف حسب القرية')}</h2>
         <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
-          {['Ehden', 'Zgharta', 'Miziara', 'Kfarsghab'].map(v => {
+          {['Ehden', 'Zgharta', 'Ardeh', 'Kfarsghab', 'Rachiine', 'Mejdlaya'].map(v => {
             const count = [...places, ...businesses].filter(i => i.village === v).length;
             const vPlace = places.find(p => p.village === v && p.image);
             return <div key={v} onClick={() => setTab('map')} style={{ flexShrink: 0, width: 140, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
