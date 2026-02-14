@@ -205,7 +205,15 @@ export default function ZghartaTourismApp() {
     const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
     const filteredLocations = mapFilter === 'all' ? allLocations : allLocations.filter(l => l.category === mapFilter);
 
-    const markerEmojis = { religious: '⛪', nature: '🌲', heritage: '🏛️', restaurant: '🍴', hotel: '🏨', shop: '🛍️', cafe: '☕' };
+    const markerSvgs = {
+      religious: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/><path d="m2 12 10-7 10 7"/><path d="M12 22V12"/><path d="M12 5V2"/></svg>`,
+      nature: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><path d="m8 9 4-7 4 7"/><path d="m6 14 6-5 6 5"/></svg>`,
+      heritage: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/><line x1="2" y1="18" x2="22" y2="18"/></svg>`,
+      restaurant: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
+      hotel: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>`,
+      shop: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+      cafe: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>`
+    };
     const markerColors = { religious: '#d97706', nature: '#16a34a', heritage: '#78716c', restaurant: '#dc2626', hotel: '#2563eb', shop: '#8b5cf6', cafe: '#ea580c' };
 
     useEffect(() => {
@@ -249,12 +257,12 @@ export default function ZghartaTourismApp() {
         const pos = new window.google.maps.LatLng(loc.coordinates.lat, loc.coordinates.lng);
         bounds.extend(pos);
         const color = markerColors[loc.category] || '#10b981';
-        const emoji = markerEmojis[loc.category] || '📍';
+        const svg = markerSvgs[loc.category] || markerSvgs.religious;
         const overlay = new window.google.maps.OverlayView();
         overlay.onAdd = function () {
           const div = document.createElement('div');
           div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.15s ease;';
-          div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:42px;height:42px;border-radius:50%;background:white;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.18);font-size:20px;line-height:1;">${emoji}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${color};margin-top:-1px;"></div></div>`;
+          div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:40px;height:40px;border-radius:50%;background:white;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.18);color:${color};">${svg}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${color};margin-top:-1px;"></div></div>`;
           div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15) translateY(-2px)'; div.style.zIndex = '999'; });
           div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
           div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
@@ -294,14 +302,14 @@ export default function ZghartaTourismApp() {
       {/* Filter pills overlay */}
       <div style={{ position: 'absolute', top: 72, left: 0, right: 0, zIndex: 10, padding: '0 16px', overflowX: 'auto' }}>
         <div style={{ display: 'flex', gap: 6 }}>{[
-          { id: 'all', l: t('All', 'الكل'), emoji: '📍' },
-          { id: 'religious', l: t('Religious', 'ديني'), emoji: '⛪' },
-          { id: 'nature', l: t('Nature', 'طبيعة'), emoji: '🌲' },
-          { id: 'heritage', l: t('Heritage', 'تراث'), emoji: '🏛️' },
-          { id: 'restaurant', l: t('Food', 'مطاعم'), emoji: '🍴' },
-          { id: 'hotel', l: t('Hotels', 'فنادق'), emoji: '🏨' },
-          { id: 'cafe', l: t('Cafes', 'مقاهي'), emoji: '☕' }
-        ].map(c => <button key={c.id} onClick={() => { setMapFilter(c.id); setSelectedMarker(null); }} style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: mapFilter === c.id ? '#10b981' : 'white', color: mapFilter === c.id ? 'white' : '#4b5563', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontSize: 14 }}>{c.emoji}</span>{c.l}</button>)}</div>
+          { id: 'all', l: t('All', 'الكل'), Icon: MapPin },
+          { id: 'religious', l: t('Religious', 'ديني'), Icon: Church },
+          { id: 'nature', l: t('Nature', 'طبيعة'), Icon: TreePine },
+          { id: 'heritage', l: t('Heritage', 'تراث'), Icon: Landmark },
+          { id: 'restaurant', l: t('Food', 'مطاعم'), Icon: Utensils },
+          { id: 'hotel', l: t('Hotels', 'فنادق'), Icon: Hotel },
+          { id: 'cafe', l: t('Cafes', 'مقاهي'), Icon: Coffee }
+        ].map(c => <button key={c.id} onClick={() => { setMapFilter(c.id); setSelectedMarker(null); }} style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: mapFilter === c.id ? '#10b981' : 'white', color: mapFilter === c.id ? 'white' : '#4b5563', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 5 }}><c.Icon style={{ width: 14, height: 14 }} />{c.l}</button>)}</div>
       </div>
 
       {/* Preview card when marker is selected */}
@@ -311,7 +319,7 @@ export default function ZghartaTourismApp() {
             <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 110, height: 110, flexShrink: 0 }} />
             <div style={{ flex: 1, padding: 14, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>{markerEmojis[selectedMarker.category] || '📍'}</span>
+                {React.createElement({ religious: Church, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: Hotel, shop: ShoppingBag, cafe: Coffee }[selectedMarker.category] || MapPin, { style: { width: 16, height: 16, color: markerColors[selectedMarker.category] || '#059669' } })}
                 <span style={{ fontSize: 12, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
               </div>
               <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 4, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
