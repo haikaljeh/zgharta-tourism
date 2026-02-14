@@ -209,6 +209,8 @@ export default function ZghartaTourismApp() {
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapFilter, setMapFilter] = useState('all');
+    const lastFilterRef = React.useRef('all');
+    const initialFitDone = React.useRef(false);
 
     const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
     const filteredLocations = mapFilter === 'all' ? allLocations : allLocations.filter(l => l.category === mapFilter);
@@ -286,9 +288,16 @@ export default function ZghartaTourismApp() {
         overlay.setMap(mapInstanceRef.current);
         overlaysRef.current.push(overlay);
       });
-      if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
-      else if (filteredLocations.length === 1) { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
-    }, [mapLoaded, filteredLocations]);
+      if (filteredLocations.length > 1 && (!initialFitDone.current || lastFilterRef.current !== mapFilter)) {
+        mapInstanceRef.current.fitBounds(bounds, 60);
+        initialFitDone.current = true;
+        lastFilterRef.current = mapFilter;
+      } else if (filteredLocations.length === 1 && lastFilterRef.current !== mapFilter) {
+        mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng });
+        mapInstanceRef.current.setZoom(15);
+        lastFilterRef.current = mapFilter;
+      }
+    }, [mapLoaded, mapFilter]);
 
     return <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
       {/* Full screen map */}
