@@ -15,7 +15,7 @@ const PlaceImage = ({ src, category, name, style = {} }) => {
   const Icon = icons[category] || MapPin;
   const gradient = gradients[category] || gradients.heritage;
   if (!src || err) return <div style={{ background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', ...style }}><Icon style={{ width: 40, height: 40, color: 'rgba(255,255,255,0.5)' }} /></div>;
-  return <div style={{ position: 'relative', overflow: 'hidden', ...style }}>{!loaded && <div style={{ position: 'absolute', inset: 0, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon style={{ width: 40, height: 40, color: 'rgba(255,255,255,0.5)' }} /></div>}<img src={src} alt={name} onLoad={() => setLoaded(true)} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }} /></div>;
+  return <div style={{ position: 'relative', overflow: 'hidden', ...style }}>{!loaded && <div style={{ position: 'absolute', inset: 0, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon style={{ width: 40, height: 40, color: 'rgba(255,255,255,0.5)' }} /></div>}<img src={src} alt={name} loading="lazy" onLoad={() => setLoaded(true)} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }} /></div>;
 };
 
 export default function ZghartaTourismApp() {
@@ -42,7 +42,15 @@ export default function ZghartaTourismApp() {
   const t = (en, ar) => lang === 'en' ? en : ar;
 
   const fetchData = async () => {
-    setLoading(true); setError(null);
+    // Try showing cached data immediately while we fetch fresh
+    try {
+      const cached = localStorage.getItem('zgharta-data');
+      if (cached) {
+        const { places: cp, businesses: cb, events: ce, ts } = JSON.parse(cached);
+        if (cp?.length) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); }
+      }
+    } catch {}
+    setError(null);
     try {
       const [pRes, bRes, eRes] = await Promise.all([
         supabase.from('places').select('*').order('featured', { ascending: false }),
@@ -52,10 +60,16 @@ export default function ZghartaTourismApp() {
       if (pRes.error) throw pRes.error;
       if (bRes.error) throw bRes.error;
       if (eRes.error) throw eRes.error;
-      setPlaces(pRes.data.map(p => ({ id: p.id, name: p.name, nameAr: p.name_ar, category: p.category, village: p.village, description: p.description, descriptionAr: p.description_ar, image: p.image_url, coordinates: { lat: p.latitude, lng: p.longitude }, openHours: p.open_hours, featured: p.featured })));
-      setBusinesses(bRes.data.map(b => ({ id: b.id, name: b.name, nameAr: b.name_ar, category: b.category, village: b.village, description: b.description, descriptionAr: b.description_ar, image: b.image_url, coordinates: { lat: b.latitude, lng: b.longitude }, rating: b.rating, priceRange: b.price_range, phone: b.phone, website: b.website, specialties: b.specialties, verified: b.verified })));
-      setEvents(eRes.data.map(e => ({ id: e.id, name: e.name, nameAr: e.name_ar, category: e.category, village: e.village, description: e.description, descriptionAr: e.description_ar, date: e.event_date, time: e.event_time, location: e.location, locationAr: e.location_ar, featured: e.featured })));
-    } catch (err) { setError(err.message || 'Failed to load'); }
+      const newPlaces = pRes.data.map(p => ({ id: p.id, name: p.name, nameAr: p.name_ar, category: p.category, village: p.village, description: p.description, descriptionAr: p.description_ar, image: p.image_url, coordinates: { lat: p.latitude, lng: p.longitude }, openHours: p.open_hours, featured: p.featured }));
+      const newBiz = bRes.data.map(b => ({ id: b.id, name: b.name, nameAr: b.name_ar, category: b.category, village: b.village, description: b.description, descriptionAr: b.description_ar, image: b.image_url, coordinates: { lat: b.latitude, lng: b.longitude }, rating: b.rating, priceRange: b.price_range, phone: b.phone, website: b.website, specialties: b.specialties, verified: b.verified }));
+      const newEvents = eRes.data.map(e => ({ id: e.id, name: e.name, nameAr: e.name_ar, category: e.category, village: e.village, description: e.description, descriptionAr: e.description_ar, date: e.event_date, time: e.event_time, location: e.location, locationAr: e.location_ar, featured: e.featured }));
+      setPlaces(newPlaces); setBusinesses(newBiz); setEvents(newEvents);
+      // Cache for offline use
+      try { localStorage.setItem('zgharta-data', JSON.stringify({ places: newPlaces, businesses: newBiz, events: newEvents, ts: Date.now() })); } catch {}
+    } catch (err) {
+      // If we have cached data, don't show error — just show offline banner
+      if (places.length === 0) setError(err.message || 'Failed to load');
+    }
     finally { setLoading(false); }
   };
 
@@ -85,17 +99,23 @@ export default function ZghartaTourismApp() {
       .slice(0, limit);
   };
 
-  // Share a place via Web Share API or clipboard
-  const shareLoc = async (name, village) => {
-    const text = `${name} — ${village}, Zgharta Caza, Lebanon`;
-    if (navigator.share) { try { await navigator.share({ title: name, text }); } catch {} }
+  // Share a place via Web Share API or clipboard — include Google Maps link
+  const shareLoc = async (name, village, coords) => {
+    const mapsLink = coords?.lat ? `https://maps.google.com/?q=${coords.lat},${coords.lng}` : '';
+    const text = `${name} — ${village}, Zgharta Caza, Lebanon${mapsLink ? '\n' + mapsLink : ''}`;
+    if (navigator.share) { try { await navigator.share({ title: name, text, url: mapsLink || undefined }); } catch {} }
     else { try { await navigator.clipboard.writeText(text); alert(t('Copied to clipboard!', 'تم النسخ!')); } catch {} }
   };
 
   // Show on map helper
   const showOnMap = (coords) => { setSelPlace(null); setSelBiz(null); setTab('map'); };
 
-  if (loading) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}><div style={{ textAlign: 'center' }}><Loader2 style={{ width: 48, height: 48, color: '#10b981', animation: 'spin 1s linear infinite' }} /><p style={{ marginTop: 16, color: '#6b7280' }}>{t('Loading...', 'جاري التحميل...')}</p></div><style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style></div>;
+  if (loading) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%)' }}><div style={{ textAlign: 'center' }}>
+    <div style={{ width: 80, height: 80, borderRadius: 20, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', backdropFilter: 'blur(8px)' }}><Compass style={{ width: 40, height: 40, color: 'white' }} /></div>
+    <h1 style={{ fontSize: 28, fontWeight: 800, color: 'white', marginBottom: 6 }}>Zgharta Caza</h1>
+    <p style={{ color: '#a7f3d0', fontSize: 14, marginBottom: 24 }}>North Lebanon · شمال لبنان</p>
+    <Loader2 style={{ width: 24, height: 24, color: '#6ee7b7', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+  </div><style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style></div>;
   if (error) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: 24 }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div><h2 style={{ color: '#ef4444', marginBottom: 8 }}>{t('Connection Error', 'خطأ في الاتصال')}</h2><p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>{error}</p><button onClick={fetchData} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer' }}>{t('Try Again', 'حاول مجدداً')}</button></div></div>;
 
   // Consistent icon map used across all screens
@@ -108,6 +128,8 @@ export default function ZghartaTourismApp() {
     const natureCount = places.filter(p => p.category === 'nature').length;
     const churchCount = places.filter(p => p.category === 'religious').length;
     const restCount = businesses.filter(b => b.category === 'restaurant').length;
+    const cafeCount = businesses.filter(b => b.category === 'cafe').length;
+    const totalCount = places.length + businesses.length;
     const nextEvent = events.find(e => new Date(e.date) >= new Date());
 
     return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
@@ -123,11 +145,11 @@ export default function ZghartaTourismApp() {
             <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.15)', borderRadius: 9999, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'white' }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
           </div>
           {/* Stats row */}
-          <div style={{ display: 'flex', gap: 16 }}>
-            {[{ n: churchCount, l: t('Churches', 'كنائس'), Icon: Cross }, { n: natureCount, l: t('Nature Spots', 'طبيعة'), Icon: TreePine }, { n: restCount, l: t('Restaurants', 'مطاعم'), Icon: Utensils }].map((s, i) => <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: '14px 12px', textAlign: 'center', backdropFilter: 'blur(8px)' }}>
-              <s.Icon style={{ width: 20, height: 20, color: '#6ee7b7', margin: '0 auto 6px' }} />
-              <div style={{ fontSize: 22, fontWeight: 700, color: 'white' }}>{s.n}</div>
-              <div style={{ fontSize: 11, color: '#a7f3d0' }}>{s.l}</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {[{ n: totalCount, l: t('Places', 'أماكن'), Icon: MapPin }, { n: churchCount, l: t('Churches', 'كنائس'), Icon: Cross }, { n: natureCount, l: t('Nature', 'طبيعة'), Icon: TreePine }, { n: restCount + cafeCount, l: t('Dining', 'مطاعم'), Icon: Utensils }].map((s, i) => <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 8px', textAlign: 'center', backdropFilter: 'blur(8px)' }}>
+              <s.Icon style={{ width: 18, height: 18, color: '#6ee7b7', margin: '0 auto 4px' }} />
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'white' }}>{s.n}</div>
+              <div style={{ fontSize: 10, color: '#a7f3d0' }}>{s.l}</div>
             </div>)}
           </div>
         </div>
@@ -210,6 +232,28 @@ export default function ZghartaTourismApp() {
               </div>
             </div>;
           })}
+        </div>
+      </div>
+
+      {/* Getting There */}
+      <div style={{ padding: '24px 16px 0' }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 14, textAlign: isRTL ? 'right' : 'left' }}>{t('Getting There', 'كيف تصل')}</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            { from: t('From Beirut', 'من بيروت'), time: t('~2h drive (120 km)', '~ساعتان بالسيارة (120 كم)'), route: t('Via Chekka highway, then mountain road', 'عبر أوتوستراد شكا ثم طريق الجبل'), link: 'https://www.google.com/maps/dir/Beirut,+Lebanon/Zgharta,+Lebanon/' },
+            { from: t('From Tripoli', 'من طرابلس'), time: t('~30 min drive (25 km)', '~30 دقيقة بالسيارة (25 كم)'), route: t('Direct road via Kousba or highway', 'طريق مباشر عبر القوصبة أو الأوتوستراد'), link: 'https://www.google.com/maps/dir/Tripoli,+Lebanon/Zgharta,+Lebanon/' },
+            { from: t('Ehden from Zgharta', 'من زغرتا إلى إهدن'), time: t('~20 min drive (15 km)', '~20 دقيقة بالسيارة (15 كم)'), route: t('Mountain road, scenic views', 'طريق جبلي، مناظر خلابة'), link: 'https://www.google.com/maps/dir/Zgharta,+Lebanon/Ehden,+Lebanon/' }
+          ].map((r, i) => <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" style={{ background: 'white', borderRadius: 14, padding: 14, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Navigation style={{ width: 18, height: 18, color: '#10b981' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{r.from}</p>
+              <p style={{ fontSize: 12, color: '#10b981', fontWeight: 500 }}>{r.time}</p>
+              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{r.route}</p>
+            </div>
+            <ExternalLink style={{ width: 14, height: 14, color: '#d1d5db', flexShrink: 0 }} />
+          </a>)}
         </div>
       </div>
     </div>;
@@ -747,7 +791,7 @@ export default function ZghartaTourismApp() {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
         <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => shareLoc(p.name, p.village)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
+          <button onClick={() => shareLoc(p.name, p.village, p.coordinates)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
           <button onClick={() => toggleFav(p.id, 'place')} style={{ width: 40, height: 40, background: isFav(p.id, 'place') ? '#ef4444' : 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart style={{ width: 20, height: 20, color: isFav(p.id, 'place') ? 'white' : '#1f2937', fill: isFav(p.id, 'place') ? 'white' : 'none' }} /></button>
         </div>
         {/* Category badge */}
@@ -795,7 +839,7 @@ export default function ZghartaTourismApp() {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
         <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => shareLoc(b.name, b.village)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
+          <button onClick={() => shareLoc(b.name, b.village, b.coordinates)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
           <button onClick={() => toggleFav(b.id, 'business')} style={{ width: 40, height: 40, background: isFav(b.id, 'business') ? '#ef4444' : 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart style={{ width: 20, height: 20, color: isFav(b.id, 'business') ? 'white' : '#1f2937', fill: isFav(b.id, 'business') ? 'white' : 'none' }} /></button>
         </div>
         {/* Category + rating badge */}
