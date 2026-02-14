@@ -20,10 +20,15 @@ const PlaceImage = ({ src, category, name, style = {} }) => {
 
 export default function ZghartaTourismApp() {
   const [tab, setTab] = useState('map');
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('zgharta-lang') || 'en'; } catch { return 'en'; }
+  });
   const [selPlace, setSelPlace] = useState(null);
   const [selBiz, setSelBiz] = useState(null);
-  const [favs, setFavs] = useState({ places: [], businesses: [] });
+  const [favs, setFavs] = useState(() => {
+    try { const saved = localStorage.getItem('zgharta-favs'); return saved ? JSON.parse(saved) : { places: [], businesses: [] }; }
+    catch { return { places: [], businesses: [] }; }
+  });
   const [catFilter, setCatFilter] = useState('all');
   const [places, setPlaces] = useState([]);
   const [businesses, setBusinesses] = useState([]);
@@ -53,6 +58,8 @@ export default function ZghartaTourismApp() {
   };
 
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => { try { localStorage.setItem('zgharta-favs', JSON.stringify(favs)); } catch {} }, [favs]);
+  useEffect(() => { try { localStorage.setItem('zgharta-lang', lang); } catch {} }, [lang]);
 
   const toggleFav = (id, type) => setFavs(p => { const k = type === 'place' ? 'places' : 'businesses'; return { ...p, [k]: p[k].includes(id) ? p[k].filter(i => i !== id) : [...p[k], id] }; });
   const isFav = (id, type) => favs[type === 'place' ? 'places' : 'businesses'].includes(id);
@@ -206,6 +213,8 @@ export default function ZghartaTourismApp() {
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
     const overlaysRef = React.useRef([]);
+    const zoomTimerRef = React.useRef(null);
+    const filteredLocsRef = React.useRef([]);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapFilter, setMapFilter] = useState('all');
@@ -257,47 +266,139 @@ export default function ZghartaTourismApp() {
           ]
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
+        // Re-render markers on zoom change for clustering
+        mapInstanceRef.current.addListener('zoom_changed', () => {
+          if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+          zoomTimerRef.current = setTimeout(() => renderMarkers(), 150);
+        });
       }
-      // Clear old overlays
-      overlaysRef.current.forEach(o => o.setMap(null));
-      overlaysRef.current = [];
-      // Add icon-only callout bubbles
-      const bounds = new window.google.maps.LatLngBounds();
-      filteredLocations.forEach(loc => {
-        const pos = new window.google.maps.LatLng(loc.coordinates.lat, loc.coordinates.lng);
-        bounds.extend(pos);
-        const color = markerColors[loc.category] || '#10b981';
-        const svg = markerSvgs[loc.category] || markerSvgs.religious;
-        const overlay = new window.google.maps.OverlayView();
-        overlay.onAdd = function () {
-          const div = document.createElement('div');
-          div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.15s ease;';
-          div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:40px;height:40px;border-radius:50%;background:white;border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.18);color:${color};">${svg}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${color};margin-top:-1px;"></div></div>`;
-          div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15) translateY(-2px)'; div.style.zIndex = '999'; });
-          div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
-          div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
-          this.div = div;
-          this.getPanes().overlayMouseTarget.appendChild(div);
-        };
-        overlay.draw = function () {
-          const proj = this.getProjection();
-          const p = proj.fromLatLngToDivPixel(pos);
-          if (this.div) { this.div.style.left = (p.x - 21) + 'px'; this.div.style.top = (p.y - 48) + 'px'; }
-        };
-        overlay.onRemove = function () { if (this.div) this.div.remove(); };
-        overlay.setMap(mapInstanceRef.current);
-        overlaysRef.current.push(overlay);
-      });
-      if (filteredLocations.length > 1 && (!initialFitDone.current || lastFilterRef.current !== mapFilter)) {
-        mapInstanceRef.current.fitBounds(bounds, 60);
+
+      filteredLocsRef.current = filteredLocations;
+
+      function renderMarkers() {
+        // Clear old overlays
+        overlaysRef.current.forEach(o => o.setMap(null));
+        overlaysRef.current = [];
+
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        const zoom = map.getZoom();
+        const locs = filteredLocsRef.current;
+        const CLUSTER_THRESHOLD = 13; // Below this zoom, cluster markers
+
+        if (zoom >= CLUSTER_THRESHOLD) {
+          // HIGH ZOOM: Show individual icon markers
+          locs.forEach(loc => {
+            const pos = new window.google.maps.LatLng(loc.coordinates.lat, loc.coordinates.lng);
+            const color = markerColors[loc.category] || '#10b981';
+            const svg = markerSvgs[loc.category] || markerSvgs.religious;
+            const isSaved = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
+            const overlay = new window.google.maps.OverlayView();
+            overlay.onAdd = function () {
+              const div = document.createElement('div');
+              div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.15s ease;z-index:1;';
+              div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:40px;height:40px;border-radius:50%;background:${isSaved ? '#fef3c7' : 'white'};border:2.5px solid ${isSaved ? '#f59e0b' : color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.18);color:${color};">${svg}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${isSaved ? '#f59e0b' : color};margin-top:-1px;"></div></div>`;
+              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15) translateY(-2px)'; div.style.zIndex = '999'; });
+              div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
+              div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); map.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
+              this.div = div;
+              this.getPanes().overlayMouseTarget.appendChild(div);
+            };
+            overlay.draw = function () {
+              const proj = this.getProjection();
+              const p = proj.fromLatLngToDivPixel(pos);
+              if (this.div) { this.div.style.left = (p.x - 21) + 'px'; this.div.style.top = (p.y - 48) + 'px'; }
+            };
+            overlay.onRemove = function () { if (this.div) this.div.remove(); };
+            overlay.setMap(map);
+            overlaysRef.current.push(overlay);
+          });
+        } else {
+          // LOW ZOOM: Cluster nearby markers
+          const gridSize = zoom <= 10 ? 1.5 : zoom <= 11 ? 0.8 : 0.4; // degrees
+          const clusters = [];
+          const assigned = new Set();
+
+          locs.forEach((loc, i) => {
+            if (assigned.has(i)) return;
+            const cluster = { locs: [loc], lat: loc.coordinates.lat, lng: loc.coordinates.lng };
+            assigned.add(i);
+            locs.forEach((other, j) => {
+              if (assigned.has(j)) return;
+              const dLat = Math.abs(loc.coordinates.lat - other.coordinates.lat);
+              const dLng = Math.abs(loc.coordinates.lng - other.coordinates.lng);
+              if (dLat < gridSize * 0.08 && dLng < gridSize * 0.08) {
+                cluster.locs.push(other);
+                cluster.lat = (cluster.lat + other.coordinates.lat) / 2;
+                cluster.lng = (cluster.lng + other.coordinates.lng) / 2;
+                assigned.add(j);
+              }
+            });
+            clusters.push(cluster);
+          });
+
+          clusters.forEach(cluster => {
+            const pos = new window.google.maps.LatLng(cluster.lat, cluster.lng);
+            const overlay = new window.google.maps.OverlayView();
+            overlay.onAdd = function () {
+              const div = document.createElement('div');
+              div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.15s ease;z-index:1;';
+
+              if (cluster.locs.length === 1) {
+                // Single marker even at low zoom
+                const loc = cluster.locs[0];
+                const color = markerColors[loc.category] || '#10b981';
+                const svg = markerSvgs[loc.category] || markerSvgs.religious;
+                div.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:36px;height:36px;border-radius:50%;background:white;border:2px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);color:${color};">${svg}</div></div>`;
+                div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); map.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); map.setZoom(Math.max(zoom + 2, CLUSTER_THRESHOLD)); });
+              } else {
+                // Cluster bubble
+                const count = cluster.locs.length;
+                const size = count > 20 ? 56 : count > 10 ? 48 : 40;
+                // Determine dominant category for color
+                const catCounts = {};
+                cluster.locs.forEach(l => { catCounts[l.category] = (catCounts[l.category] || 0) + 1; });
+                const dominant = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0];
+                const color = markerColors[dominant] || '#10b981';
+                div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);border:3px solid white;"><span style="color:white;font-weight:700;font-size:${count > 20 ? 16 : 14}px;">${count}</span></div>`;
+                div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.1)'; div.style.zIndex = '999'; });
+                div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
+                div.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  // Zoom into cluster
+                  const b = new window.google.maps.LatLngBounds();
+                  cluster.locs.forEach(l => b.extend({ lat: l.coordinates.lat, lng: l.coordinates.lng }));
+                  map.fitBounds(b, 60);
+                });
+              }
+              this.div = div;
+              this.getPanes().overlayMouseTarget.appendChild(div);
+            };
+            overlay.draw = function () {
+              const proj = this.getProjection();
+              const p = proj.fromLatLngToDivPixel(pos);
+              const offset = cluster.locs.length === 1 ? 18 : (cluster.locs.length > 20 ? 28 : cluster.locs.length > 10 ? 24 : 20);
+              if (this.div) { this.div.style.left = (p.x - offset) + 'px'; this.div.style.top = (p.y - offset) + 'px'; }
+            };
+            overlay.onRemove = function () { if (this.div) this.div.remove(); };
+            overlay.setMap(map);
+            overlaysRef.current.push(overlay);
+          });
+        }
+      }
+
+      renderMarkers();
+
+      // Fit bounds on filter change or initial load
+      if (filteredLocations.length > 0 && (!initialFitDone.current || lastFilterRef.current !== mapFilter)) {
+        const bounds = new window.google.maps.LatLngBounds();
+        filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
+        if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
+        else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
         initialFitDone.current = true;
         lastFilterRef.current = mapFilter;
-      } else if (filteredLocations.length === 1 && lastFilterRef.current !== mapFilter) {
-        mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng });
-        mapInstanceRef.current.setZoom(15);
-        lastFilterRef.current = mapFilter;
       }
-    }, [mapLoaded, mapFilter]);
+    }, [mapLoaded, mapFilter, favs]);
 
     return <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
       {/* Full screen map */}
