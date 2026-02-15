@@ -474,12 +474,21 @@ export default function ZghartaTourismApp() {
     }, []);
 
     useEffect(() => {
+      const origBody = document.body.style.overflow;
+      const origHtml = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = origBody; document.documentElement.style.overflow = origHtml; };
+    }, []);
+
+    useEffect(() => {
       if (!mapLoaded || !mapRef.current || !window.google?.maps) return;
       if (!mapInstanceRef.current) {
         mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
           center: { lat: 34.3955, lng: 35.8945 },
           zoom: 15,
           mapId: 'zgharta-tourism-map',
+          gestureHandling: 'greedy',
           disableDefaultUI: true,
           zoomControl: true,
           zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER },
@@ -633,7 +642,7 @@ export default function ZghartaTourismApp() {
         const nearby = getNearby(sm.coordinates, sm.id);
         const PEEK_H = 160;
         const HALF_H = Math.round(window.innerHeight * 0.5);
-        const FULL_H = window.innerHeight - 60;
+        const FULL_H = window.innerHeight - 128;
         const getTranslateY = (state) => state === 'full' ? 0 : state === 'half' ? (FULL_H - HALF_H) : (FULL_H - PEEK_H);
 
         const snapTo = (state) => {
@@ -706,7 +715,7 @@ export default function ZghartaTourismApp() {
           pdf.save(`${sm.name.replace(/\s+/g, '-')}.pdf`);
         };
 
-        return <div ref={sheetRef} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20, height: FULL_H, background: 'white', borderRadius: '20px 20px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', transform: `translateY(${getTranslateY('peek')}px)`, transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', direction: isRTL ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column' }}
+        return <div ref={sheetRef} style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 20, height: FULL_H, background: 'white', borderRadius: '20px 20px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', transform: `translateY(${getTranslateY('peek')}px)`, transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', direction: isRTL ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column' }}
           onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
           {/* Drag handle */}
           <div style={{ padding: '10px 0 6px', display: 'flex', justifyContent: 'center', flexShrink: 0, cursor: 'grab' }}>
@@ -793,7 +802,7 @@ export default function ZghartaTourismApp() {
                     </div>)}
                   </div>
                 </div>}
-                <div style={{ height: 80 }} />{/* spacer for bottom nav */}
+                <div style={{ height: 16 }} />
               </div>}
             </div>
           </div>
@@ -995,7 +1004,7 @@ export default function ZghartaTourismApp() {
     </div>;
   };
 
-  return <div style={{ maxWidth: 448, margin: '0 auto', background: 'white', minHeight: '100vh', fontFamily: isRTL ? 'Tajawal, sans-serif' : 'Inter, system-ui, sans-serif' }}>
+  return <div style={{ maxWidth: 448, margin: '0 auto', background: 'white', minHeight: '100vh', ...(tab === 'map' ? { height: '100vh', overflow: 'hidden' } : {}), fontFamily: isRTL ? 'Tajawal, sans-serif' : 'Inter, system-ui, sans-serif' }}>
     {tab === 'guide' && <GuideScreen />}
     {tab === 'explore' && <ExploreScreen />}
     {tab === 'events' && <EventsScreen />}
