@@ -606,13 +606,18 @@ export default function ZghartaTourismApp() {
       renderRef.current = renderMarkers;
       renderMarkers();
 
-      // Fit bounds on filter change or initial load
+      // Only fit bounds when filters actually change — NOT when favs change
       const filterKey = `${mapFilter.join(',')}|${villageFilter.join(',')}`;
-      if (filteredLocations.length > 0 && (!initialFitDone.current || lastFilterRef.current !== filterKey)) {
+      if (filteredLocations.length > 0 && lastFilterRef.current !== filterKey) {
         const bounds = new window.google.maps.LatLngBounds();
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
+        lastFilterRef.current = filterKey;
+      } else if (!initialFitDone.current && filteredLocations.length > 0) {
+        const bounds = new window.google.maps.LatLngBounds();
+        filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
+        if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         initialFitDone.current = true;
         lastFilterRef.current = filterKey;
       }
@@ -625,87 +630,83 @@ export default function ZghartaTourismApp() {
         <div style={{ width: '100%', height: '100%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key', 'أضف مفتاح خرائط جوجل')}</p></div></div>
       )}
 
-      {/* Search bar overlay */}
-      <div style={{ position: 'absolute', top: 12, left: 12, right: 12, zIndex: 10 }}>
-        <div style={{ background: 'white', borderRadius: 14, padding: '8px 12px', boxShadow: '0 2px 12px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Search style={{ width: 16, height: 16, color: '#9ca3af', flexShrink: 0 }} />
-          <input type="text" placeholder={t('Search Zgharta Caza...', 'ابحث في قضاء زغرتا...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, background: 'transparent' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
-          <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '3px 8px', background: '#f3f4f6', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#4b5563', flexShrink: 0 }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
+      {/* Compact top bar: search + filters in one strip */}
+      <div style={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Row 1: Search bar */}
+        <div style={{ background: 'white', borderRadius: 12, padding: '6px 10px', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
+          <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
+          {/* Filters inline */}
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {/* Category dropdown */}
+            <button onClick={() => { setShowCatDrop(v => !v); setShowVillageDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: mapFilter.length > 0 ? '#10b981' : '#f3f4f6', color: mapFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Filter style={{ width: 10, height: 10 }} />
+              {mapFilter.length === 0 ? t('Type', 'نوع') : mapFilter.length}
+              <ChevronDown style={{ width: 10, height: 10 }} />
+            </button>
+            {/* Village dropdown */}
+            <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? '#1f2937' : '#f3f4f6', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <MapPin style={{ width: 10, height: 10 }} />
+              {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
+              <ChevronDown style={{ width: 10, height: 10 }} />
+            </button>
+            {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '4px 6px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626' }}><X style={{ width: 10, height: 10 }} /></button>}
+            {/* Lang toggle */}
+            <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: '#f3f4f6', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
+          </div>
         </div>
       </div>
 
-      {/* Filter dropdowns */}
-      <div style={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: 10, padding: '0 12px' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* Category dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => { setShowCatDrop(v => !v); setShowVillageDrop(false); }} style={{ padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: mapFilter.length > 0 ? '#10b981' : 'white', color: mapFilter.length > 0 ? 'white' : '#4b5563', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Filter style={{ width: 12, height: 12 }} />
-              {mapFilter.length === 0 ? t('All Types', 'كل الأنواع') : `${mapFilter.length} ${t('selected', 'محدد')}`}
-              <ChevronDown style={{ width: 12, height: 12 }} />
-            </button>
-            {showCatDrop && <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 180, zIndex: 20 }}>
-              {[{ id: 'religious', l: t('Religious', 'ديني') }, { id: 'nature', l: t('Nature', 'طبيعة') }, { id: 'heritage', l: t('Heritage', 'تراث') }, { id: 'restaurant', l: t('Food', 'طعام') }, { id: 'hotel', l: t('Hotels', 'فنادق') }, { id: 'cafe', l: t('Cafes', 'مقاهي') }, { id: 'shop', l: t('Shops', 'متاجر') }].map(c => {
-                const active = mapFilter.includes(c.id);
-                const count = allLocations.filter(l => l.category === c.id && (villageFilter.length === 0 || villageFilter.includes(l.village))).length;
-                return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#ecfdf5' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
-                  <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#10b981' : '#d1d5db'}`, background: active ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[c.id] || '#6b7280' }} />
-                  <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{c.l}</span>
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
-                </button>;
-              })}
-              {mapFilter.length > 0 && <button onClick={() => { setMapFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
-            </div>}
-          </div>
-          {/* Village dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? '#1f2937' : 'white', color: villageFilter.length > 0 ? 'white' : '#4b5563', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <MapPin style={{ width: 12, height: 12 }} />
-              {villageFilter.length === 0 ? t('All Villages', 'كل القرى') : villageFilter.length === 1 ? villageFilter[0] : `${villageFilter.length} ${t('villages', 'قرى')}`}
-              <ChevronDown style={{ width: 12, height: 12 }} />
-            </button>
-            {showVillageDrop && <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 180, maxHeight: 300, overflowY: 'auto', zIndex: 20 }}>
-              {villages.map(v => {
-                const active = villageFilter.includes(v);
-                const count = allLocations.filter(l => l.village === v && (mapFilter.length === 0 || mapFilter.includes(l.category))).length;
-                return <button key={v} onClick={() => { toggleVillage(v); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#f3f4f6' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
-                  <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#1f2937' : '#d1d5db'}`, background: active ? '#1f2937' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
-                  <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{v}</span>
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
-                </button>;
-              })}
-              {villageFilter.length > 0 && <button onClick={() => { setVillageFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
-            </div>}
-          </div>
-          {/* Active filter count */}
-          {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '6px 10px', borderRadius: 10, fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}><X style={{ width: 12, height: 12 }} /></button>}
-        </div>
-      </div>
+      {/* Dropdown panels - positioned below the search bar */}
+      {showCatDrop && <div style={{ position: 'absolute', top: 48, left: 8, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200 }}>
+        {[{ id: 'religious', l: t('Religious', 'ديني') }, { id: 'nature', l: t('Nature', 'طبيعة') }, { id: 'heritage', l: t('Heritage', 'تراث') }, { id: 'restaurant', l: t('Food', 'طعام') }, { id: 'hotel', l: t('Hotels', 'فنادق') }, { id: 'cafe', l: t('Cafes', 'مقاهي') }, { id: 'shop', l: t('Shops', 'متاجر') }].map(c => {
+          const active = mapFilter.includes(c.id);
+          const count = allLocations.filter(l => l.category === c.id && (villageFilter.length === 0 || villageFilter.includes(l.village))).length;
+          return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#ecfdf5' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#10b981' : '#d1d5db'}`, background: active ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
+            <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[c.id] || '#6b7280' }} />
+            <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{c.l}</span>
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
+          </button>;
+        })}
+        {mapFilter.length > 0 && <button onClick={() => { setMapFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
+      </div>}
+      {showVillageDrop && <div style={{ position: 'absolute', top: 48, left: 8, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200, maxHeight: 300, overflowY: 'auto' }}>
+        {villages.map(v => {
+          const active = villageFilter.includes(v);
+          const count = allLocations.filter(l => l.village === v && (mapFilter.length === 0 || mapFilter.includes(l.category))).length;
+          return <button key={v} onClick={() => { toggleVillage(v); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#f3f4f6' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#1f2937' : '#d1d5db'}`, background: active ? '#1f2937' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
+            <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{v}</span>
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
+          </button>;
+        })}
+        {villageFilter.length > 0 && <button onClick={() => { setVillageFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
+      </div>}
 
       {/* Click outside to close dropdowns */}
-      {(showCatDrop || showVillageDrop) && <div onClick={() => { setShowCatDrop(false); setShowVillageDrop(false); }} style={{ position: 'absolute', inset: 0, zIndex: 9 }} />}
+      {(showCatDrop || showVillageDrop) && <div onClick={() => { setShowCatDrop(false); setShowVillageDrop(false); }} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
       {/* Preview card */}
-      {selectedMarker && <div style={{ position: 'absolute', bottom: 80, left: 12, right: 12, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
-        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
+      {selectedMarker && <div style={{ position: 'absolute', bottom: 72, left: 10, right: 10, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
+        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
           <div style={{ display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 100, height: 100, flexShrink: 0 }} />
-            <div style={{ flex: 1, padding: 12, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
-                <span style={{ fontSize: 11, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
+            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 88, height: 88, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: 10, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <div style={{ width: 7, height: 7, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
+                <span style={{ fontSize: 10, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
               </div>
-              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, marginBottom: 3, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
-              <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{selectedMarker.village}</p>
-              {selectedMarker.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}><Star style={{ width: 12, height: 12, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span><span style={{ fontSize: 12, color: '#9ca3af' }}>{selectedMarker.priceRange}</span></div>}
+              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 14, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
+              <p style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 10, height: 10 }} />{selectedMarker.village}</p>
+              {selectedMarker.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}><Star style={{ width: 11, height: 11, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span><span style={{ fontSize: 11, color: '#9ca3af' }}>{selectedMarker.priceRange}</span></div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}>
-              <ChevronRight style={{ width: 18, height: 18, color: '#d1d5db' }} />
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+              <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db' }} />
             </div>
           </div>
         </div>
-        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, background: 'rgba(0,0,0,0.06)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 12, height: 12, color: '#6b7280' }} /></button>
+        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, background: 'rgba(0,0,0,0.08)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 10, height: 10, color: '#6b7280' }} /></button>
       </div>}
       <style>{'@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }'}</style>
     </div>;
