@@ -447,7 +447,7 @@ export default function ZghartaTourismApp() {
     const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
     const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
-    const markerColors = { religious: '#b45309', nature: '#15803d', heritage: '#57534e', restaurant: '#dc2626', hotel: '#2563eb', shop: '#7c3aed', cafe: '#ea580c' };
+    const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
 
     // Tiny SVG icons for markers (10x10)
     const tinyIcons = {
@@ -484,10 +484,13 @@ export default function ZghartaTourismApp() {
           styles: [
             { featureType: 'poi', stylers: [{ visibility: 'off' }] },
             { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-            { featureType: 'water', stylers: [{ color: '#b3d9f2' }] },
-            { featureType: 'landscape.natural', stylers: [{ color: '#e8f5e9' }] },
+            { featureType: 'water', stylers: [{ color: '#c8e0f0' }] },
+            { featureType: 'landscape.natural', stylers: [{ color: '#f0f4ee' }] },
+            { featureType: 'landscape.man_made', stylers: [{ color: '#f5f3f0' }] },
             { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-            { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca3af' }] }
+            { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#b0b0b0' }] },
+            { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f0ebe4' }] },
+            { featureType: 'administrative', elementType: 'labels.text.fill', stylers: [{ color: '#a0a0a0' }] }
           ]
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
@@ -566,7 +569,7 @@ export default function ZghartaTourismApp() {
               const isSaved = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
               const dotSize = zoom >= 16 ? 26 : zoom >= 14 ? 22 : 18;
               const borderCol = isSaved ? '#f59e0b' : color;
-              div.innerHTML = `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid ${isSaved ? '#f59e0b' : 'white'};display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.3);">${dotSize >= 22 ? icon : ''}</div>`;
+              div.innerHTML = `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid ${isSaved ? '#f59e0b' : 'white'};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">${dotSize >= 22 ? icon : ''}</div>`;
               div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.3)'; div.style.zIndex = '999'; });
               div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
               div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); map.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
@@ -578,7 +581,7 @@ export default function ZghartaTourismApp() {
               cluster.locs.forEach(l => { catCounts[l.category] = (catCounts[l.category] || 0) + 1; });
               const dominant = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0];
               const color = markerColors[dominant] || '#10b981';
-              div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:0.9;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);border:2px solid white;"><span style="color:white;font-weight:700;font-size:${count > 20 ? 13 : 11}px;">${count}</span></div>`;
+              div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:0.85;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.12);border:2px solid white;"><span style="color:white;font-weight:700;font-size:${count > 20 ? 13 : 11}px;">${count}</span></div>`;
               div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15)'; div.style.zIndex = '999'; });
               div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
               div.addEventListener('click', (e) => {
@@ -695,24 +698,24 @@ export default function ZghartaTourismApp() {
 
       {/* Preview card */}
       {selectedMarker && <div style={{ position: 'absolute', bottom: 84, left: 8, right: 8, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
-        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
+        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
           <div style={{ display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 82, height: 82, flexShrink: 0 }} />
-            <div style={{ flex: 1, padding: '8px 10px', textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 100, height: 100, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: '10px 14px', textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                <div style={{ width: 7, height: 7, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
-                <span style={{ fontSize: 11, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
-                {selectedMarker.rating && <><Star style={{ width: 11, height: 11, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span></>}
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
+                <span style={{ fontSize: 12, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
+                {selectedMarker.rating && <><Star style={{ width: 13, height: 13, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span></>}
               </div>
-              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 14, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
-              <p style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 10, height: 10 }} />{selectedMarker.village}{selectedMarker.priceRange && <span style={{ color: '#9ca3af' }}> · {selectedMarker.priceRange}</span>}</p>
+              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
+              <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{selectedMarker.village}{selectedMarker.priceRange && <span style={{ color: '#9ca3af' }}> · {selectedMarker.priceRange}</span>}</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 6px' }}>
-              <ChevronRight style={{ width: 14, height: 14, color: '#d1d5db' }} />
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+              <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db' }} />
             </div>
           </div>
         </div>
-        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, background: 'rgba(0,0,0,0.08)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 9, height: 9, color: '#6b7280' }} /></button>
+        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24, background: 'rgba(0,0,0,0.08)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 11, height: 11, color: '#6b7280' }} /></button>
       </div>}
       <style>{'.map-screen { height: 100vh; height: 100dvh; } @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }'}</style>
     </div>;
