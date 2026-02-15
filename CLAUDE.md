@@ -44,7 +44,7 @@ zgharta-tourism/
 └── src/
     ├── index.js            # React 18 createRoot entry point
     ├── index.css           # Global reset, scrollbar hide, Inter font
-    └── App.js              # THE ENTIRE APP (~920 lines, single file)
+    └── App.js              # THE ENTIRE APP (~950 lines, single file)
 ```
 There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks/`, `context/`, or `utils/` folders. Everything lives in `App.js`.
 
@@ -54,7 +54,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | Component | Lines | Description |
 |-----------|-------|-------------|
 | `PlaceImage` | ~10-19 | Reusable image with category-colored gradient fallback + lazy loading |
-| `ZghartaTourismApp` | ~21-916 | Main app (default export). All state, helpers, and screens inside. |
+| `ZghartaTourismApp` | ~21-950 | Main app (default export). All state, helpers, and screens inside. |
 
 ### State (inside ZghartaTourismApp)
 - `tab` — Active tab: `'map'` | `'explore'` | `'events'` | `'guide'` | `'favorites'`
@@ -162,18 +162,30 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **All inline CSS** — no className usage except `.map-screen` for dvh height
 - Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to Lucide icons, hex colors, and background colors
 - Map marker colors in separate `markerColors` object
-- RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` and conditional `textAlign`/`flexDirection`
+- RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` on all screens and modals, conditional `textAlign`/`flexDirection`, and `[isRTL ? 'right' : 'left']` for absolute positioning (back buttons, badges, dropdowns, close buttons)
 
 ### Bilingual
 - `t(en, ar)` inline helper — no i18n library
 - DB fields: `name`/`name_ar`, `description`/`description_ar` (snake_case in DB, camelCase in JS)
 - Language persisted in localStorage `zgharta-lang`
+- **Arabic fallbacks:** All `isRTL ? item.nameAr : item.name` patterns use `(item.nameAr || item.name)` to prevent blank text when Arabic field is null
 
 ### Data & Caching
 - All data fetched on mount via `fetchData()` with `Promise.all` for all 3 tables
 - localStorage cache key: `zgharta-data` (JSON with `places`, `businesses`, `events`, `ts`)
-- Shows cached data immediately, then fetches fresh in background
+- Shows cached data immediately (if <24 hours old), then fetches fresh in background
+- **Cache expiration:** 24 hours (`Date.now() - ts < 86400000`); stale cache is ignored
 - If fetch fails and cache exists, app works offline silently
+
+### Shared Style Constants
+- `eventCatStyles` — event category color map (used in EventsScreen + EventModal)
+- `modalBackBtn` — RTL-aware back button style for all 3 modals
+- `circleBtn` — base 40x40 circular button style
+- `primaryBtn` / `secondaryBtn` — action button styles used across modals
+
+### Performance
+- **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (MapScreen), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `groups` (FavsScreen)
+- **useEffect cleanup:** Map rendering effect clears zoom timer and removes overlays on unmount; script loader clears recursive setTimeout
 
 ### Map Implementation
 - Google Maps loaded dynamically via script tag injection
@@ -186,6 +198,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **Geolocation:** On mount, requests user position; only pans to it if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
 - **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
 - **Soft color theme:** muted marker colors (`markerColors`), desaturated map styles (lighter water, landscape, road labels)
+- **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
 
 ### Navigation
 - Tab-based via `tab` state — no React Router
