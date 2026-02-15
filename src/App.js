@@ -440,7 +440,6 @@ export default function ZghartaTourismApp() {
     const [mapFilter, setMapFilter] = useState([]);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
-    const [showCatDrop, setShowCatDrop] = useState(false);
     const [showVillageDrop, setShowVillageDrop] = useState(false);
     const geolocDone = React.useRef(false);
 
@@ -567,48 +566,44 @@ export default function ZghartaTourismApp() {
         <div style={{ width: '100%', height: '100%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key', 'أضف مفتاح خرائط جوجل')}</p></div></div>
       )}
 
-      {/* Compact top bar: search + filters in one strip */}
+      {/* Top bar: search + village filter + category chips */}
       <div style={{ position: 'absolute', top: 6, left: 6, right: 6, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Row 1: Search bar */}
+        {/* Row 1: Search bar + village + lang */}
         <div style={{ background: 'white', borderRadius: 12, padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
           <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', textAlign: isRTL ? 'right' : 'left' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
-          {/* Filters inline */}
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            {/* Category dropdown */}
-            <button onClick={() => { setShowCatDrop(v => !v); setShowVillageDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: mapFilter.length > 0 ? '#10b981' : '#f3f4f6', color: mapFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Filter style={{ width: 10, height: 10 }} />
-              {mapFilter.length === 0 ? t('Type', 'نوع') : mapFilter.length}
-              <ChevronDown style={{ width: 10, height: 10 }} />
-            </button>
-            {/* Village dropdown */}
             <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? '#1f2937' : '#f3f4f6', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
               <MapPin style={{ width: 10, height: 10 }} />
               {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
               <ChevronDown style={{ width: 10, height: 10 }} />
             </button>
             {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '4px 6px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626' }}><X style={{ width: 10, height: 10 }} /></button>}
-            {/* Lang toggle */}
             <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: '#f3f4f6', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
           </div>
         </div>
+        {/* Row 2: Category chips */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', direction: isRTL ? 'rtl' : 'ltr' }}>
+          {[
+            { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
+            { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
+            { id: 'religious', icon: Cross, en: 'Churches', ar: 'كنائس', color: '#d4a054' },
+            { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
+            { id: 'heritage', icon: Landmark, en: 'Landmarks', ar: 'معالم', color: '#8d8680' },
+            { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
+          ].map(c => {
+            const active = mapFilter.includes(c.id);
+            const Icon = c.icon;
+            return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'white', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
+              <Icon style={{ width: 13, height: 13 }} />
+              {t(c.en, c.ar)}
+            </button>;
+          })}
+        </div>
       </div>
 
-      {/* Dropdown panels - positioned below the search bar */}
-      {showCatDrop && <div style={{ position: 'absolute', top: 48, [isRTL ? 'right' : 'left']: 6, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200 }}>
-        {[{ id: 'religious', l: t('Religious', 'ديني') }, { id: 'nature', l: t('Nature', 'طبيعة') }, { id: 'heritage', l: t('Heritage', 'تراث') }, { id: 'restaurant', l: t('Food', 'طعام') }, { id: 'hotel', l: t('Hotels', 'فنادق') }, { id: 'cafe', l: t('Cafes', 'مقاهي') }, { id: 'shop', l: t('Shops', 'متاجر') }].map(c => {
-          const active = mapFilter.includes(c.id);
-          const count = allLocations.filter(l => l.category === c.id && (villageFilter.length === 0 || villageFilter.includes(l.village))).length;
-          return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#ecfdf5' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: isRTL ? 'right' : 'left' }}>
-            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#10b981' : '#d1d5db'}`, background: active ? '#10b981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
-            <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[c.id] || '#6b7280' }} />
-            <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{c.l}</span>
-            <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
-          </button>;
-        })}
-        {mapFilter.length > 0 && <button onClick={() => { setMapFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
-      </div>}
-      {showVillageDrop && <div style={{ position: 'absolute', top: 48, [isRTL ? 'right' : 'left']: 6, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200, maxHeight: 300, overflowY: 'auto' }}>
+      {/* Village dropdown panel */}
+      {showVillageDrop && <div style={{ position: 'absolute', top: 82, [isRTL ? 'right' : 'left']: 6, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200, maxHeight: 300, overflowY: 'auto' }}>
         {villages.map(v => {
           const active = villageFilter.includes(v);
           const count = allLocations.filter(l => l.village === v && (mapFilter.length === 0 || mapFilter.includes(l.category))).length;
@@ -621,8 +616,8 @@ export default function ZghartaTourismApp() {
         {villageFilter.length > 0 && <button onClick={() => { setVillageFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
       </div>}
 
-      {/* Click outside to close dropdowns */}
-      {(showCatDrop || showVillageDrop) && <div onClick={() => { setShowCatDrop(false); setShowVillageDrop(false); }} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
+      {/* Click outside to close dropdown */}
+      {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
       {/* Preview card */}
       {selectedMarker && <div style={{ position: 'absolute', bottom: 84, left: 8, right: 8, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
