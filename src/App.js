@@ -433,10 +433,7 @@ export default function ZghartaTourismApp() {
   const MapScreen = () => {
     const mapRef = React.useRef(null);
     const mapInstanceRef = React.useRef(null);
-    const overlaysRef = React.useRef([]);
-    const zoomTimerRef = React.useRef(null);
-    const filteredLocsRef = React.useRef([]);
-    const renderRef = React.useRef(null);
+    const markersRef = React.useRef([]);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(false);
@@ -445,7 +442,6 @@ export default function ZghartaTourismApp() {
     const setVillageFilter = setMapVillageFilter;
     const [showCatDrop, setShowCatDrop] = useState(false);
     const [showVillageDrop, setShowVillageDrop] = useState(false);
-    const lastFilterRef = React.useRef('|');
     const geolocDone = React.useRef(false);
 
     const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
@@ -456,16 +452,6 @@ export default function ZghartaTourismApp() {
 
     const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
 
-    // Tiny SVG icons for markers (10x10)
-    const tinyIcons = {
-      religious: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M12 2v20M5 9h14"/></svg>`,
-      nature: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="m8 9 4-7 4 7"/><path d="m6 15 6-6 6 6"/></svg>`,
-      heritage: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M4 22h16M12 2l8 6H4z"/></svg>`,
-      restaurant: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M3 2v7c0 1 1 2 2 2h4c1 0 2-1 2-2V2M7 2v20M21 15V2c-3 0-5 2-5 5v6c0 1 1 2 2 2h3v7"/></svg>`,
-      hotel: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M2 4v16M2 8h18c1 0 2 1 2 2v10M2 17h20"/></svg>`,
-      shop: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M6 2 3 6v14c0 1 1 2 2 2h14c1 0 2-1 2-2V6l-3-4z"/></svg>`,
-      cafe: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M17 8h1c2 0 4 2 4 4s-2 4-4 4h-1M3 8h14v9c0 2-2 4-4 4H7c-2 0-4-2-4-4Z"/></svg>`
-    };
 
     useEffect(() => {
       if (!GOOGLE_MAPS_KEY) return;
@@ -487,144 +473,70 @@ export default function ZghartaTourismApp() {
         mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
           center: { lat: 34.3955, lng: 35.8945 },
           zoom: 15,
+          mapId: 'zgharta-tourism-map',
           disableDefaultUI: true,
           zoomControl: true,
           zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER },
-          styles: [
-            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-            { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-            { featureType: 'water', stylers: [{ color: '#c8e0f0' }] },
-            { featureType: 'landscape.natural', stylers: [{ color: '#f0f4ee' }] },
-            { featureType: 'landscape.man_made', stylers: [{ color: '#f5f3f0' }] },
-            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-            { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#b0b0b0' }] },
-            { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#f0ebe4' }] },
-            { featureType: 'administrative', elementType: 'labels.text.fill', stylers: [{ color: '#a0a0a0' }] }
-          ]
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
         mapInstanceRef.current.addListener('zoom_changed', () => {
-          if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
-          zoomTimerRef.current = setTimeout(() => { if (renderRef.current) renderRef.current(); }, 120);
-        });
-      }
-
-      filteredLocsRef.current = filteredLocations;
-
-      function renderMarkers() {
-        overlaysRef.current.forEach(o => o.setMap(null));
-        overlaysRef.current = [];
-        const map = mapInstanceRef.current;
-        if (!map) return;
-        const zoom = map.getZoom();
-        const locs = filteredLocsRef.current;
-        if (!locs.length) return;
-
-        // Pixel-based clustering using the map projection
-        // At high zoom: no clustering. At low zoom: group markers that are close in pixel space.
-        const pixelRadius = zoom >= 16 ? 0 : zoom >= 15 ? 15 : zoom >= 14 ? 30 : zoom >= 13 ? 50 : zoom >= 12 ? 70 : 100;
-
-        const clusters = [];
-        const assigned = new Set();
-
-        // Convert all locs to approximate pixel positions for clustering
-        const scale = Math.pow(2, zoom);
-        const toPixel = (lat, lng) => {
-          const x = (lng + 180) / 360 * 256 * scale;
-          const sinLat = Math.sin(lat * Math.PI / 180);
-          const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * 256 * scale;
-          return { x, y };
-        };
-
-        const pixels = locs.map(l => toPixel(l.coordinates.lat, l.coordinates.lng));
-
-        locs.forEach((loc, i) => {
-          if (assigned.has(i)) return;
-          const cluster = { indices: [i], px: pixels[i].x, py: pixels[i].y };
-          assigned.add(i);
-          if (pixelRadius > 0) {
-            locs.forEach((_, j) => {
-              if (assigned.has(j)) return;
-              const dx = pixels[j].x - cluster.px;
-              const dy = pixels[j].y - cluster.py;
-              if (dx * dx + dy * dy < pixelRadius * pixelRadius) {
-                cluster.indices.push(j);
-                assigned.add(j);
-              }
-            });
-          }
-          // Average position
-          let latSum = 0, lngSum = 0;
-          cluster.indices.forEach(idx => { latSum += locs[idx].coordinates.lat; lngSum += locs[idx].coordinates.lng; });
-          cluster.lat = latSum / cluster.indices.length;
-          cluster.lng = lngSum / cluster.indices.length;
-          cluster.locs = cluster.indices.map(idx => locs[idx]);
-          clusters.push(cluster);
-        });
-
-        clusters.forEach(cluster => {
-          const pos = new window.google.maps.LatLng(cluster.lat, cluster.lng);
-          const overlay = new window.google.maps.OverlayView();
-
-          overlay.onAdd = function () {
-            const div = document.createElement('div');
-            div.style.cssText = 'position:absolute;cursor:pointer;transition:transform 0.12s ease;z-index:1;';
-
-            if (cluster.locs.length === 1) {
-              // ---- INDIVIDUAL DOT MARKER ----
-              const loc = cluster.locs[0];
-              const color = markerColors[loc.category] || '#10b981';
-              const icon = tinyIcons[loc.category] || '';
-              const isSaved = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
-              const dotSize = zoom >= 16 ? 26 : zoom >= 14 ? 22 : 18;
-              div.innerHTML = `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid ${isSaved ? '#f59e0b' : 'white'};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">${dotSize >= 22 ? icon : ''}</div>`;
-              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.3)'; div.style.zIndex = '999'; });
-              div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
-              div.addEventListener('click', (e) => { e.stopPropagation(); setSelectedMarker(loc); map.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); });
+          const zoom = mapInstanceRef.current.getZoom();
+          markersRef.current.forEach(({ marker, pinDot, pinFull }) => {
+            if (zoom < 12) {
+              marker.map = null;
             } else {
-              // ---- CLUSTER BUBBLE ----
-              const count = cluster.locs.length;
-              const size = count > 30 ? 44 : count > 10 ? 38 : count > 3 ? 32 : 28;
-              const catCounts = {};
-              cluster.locs.forEach(l => { catCounts[l.category] = (catCounts[l.category] || 0) + 1; });
-              const dominant = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0][0];
-              const color = markerColors[dominant] || '#10b981';
-              div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};opacity:0.85;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.12);border:2px solid white;"><span style="color:white;font-weight:700;font-size:${count > 20 ? 13 : 11}px;">${count}</span></div>`;
-              div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.15)'; div.style.zIndex = '999'; });
-              div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
-              div.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const b = new window.google.maps.LatLngBounds();
-                cluster.locs.forEach(l => b.extend({ lat: l.coordinates.lat, lng: l.coordinates.lng }));
-                map.fitBounds(b, 60);
-              });
+              marker.map = mapInstanceRef.current;
+              marker.content = zoom >= 14 ? pinFull : pinDot;
             }
-            this.div = div;
-            this.getPanes().overlayMouseTarget.appendChild(div);
-          };
-          overlay.draw = function () {
-            const proj = this.getProjection();
-            const p = proj.fromLatLngToDivPixel(pos);
-            const half = cluster.locs.length === 1 ? (zoom >= 16 ? 13 : zoom >= 14 ? 11 : 9) : (cluster.locs.length > 30 ? 22 : cluster.locs.length > 10 ? 19 : 16);
-            if (this.div) { this.div.style.left = (p.x - half) + 'px'; this.div.style.top = (p.y - half) + 'px'; }
-          };
-          overlay.onRemove = function () { if (this.div) this.div.remove(); };
-          overlay.setMap(map);
-          overlaysRef.current.push(overlay);
+          });
         });
       }
 
-      renderRef.current = renderMarkers;
-      renderMarkers();
+      // Clear old markers
+      markersRef.current.forEach(({ marker }) => { marker.map = null; });
+      markersRef.current = [];
 
-      // Only fit bounds when filters actually change — NOT when favs change
-      const filterKey = `${mapFilter.join(',')}|${villageFilter.join(',')}`;
-      if (filteredLocations.length > 0 && lastFilterRef.current !== filterKey) {
+      const zoom = mapInstanceRef.current.getZoom();
+
+      filteredLocations.forEach(loc => {
+        const color = markerColors[loc.category] || '#10b981';
+
+        const pinDot = new window.google.maps.marker.PinElement({
+          scale: 0.6,
+          background: color,
+          borderColor: 'white',
+          glyphColor: 'white',
+          glyph: '',
+        });
+
+        const pinFull = new window.google.maps.marker.PinElement({
+          scale: 1.0,
+          background: color,
+          borderColor: 'white',
+          glyphColor: 'white',
+        });
+
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+          map: zoom >= 12 ? mapInstanceRef.current : null,
+          position: { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
+          content: zoom >= 14 ? pinFull.element : pinDot.element,
+          collisionBehavior: window.google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
+        });
+
+        marker.addListener('click', () => {
+          setSelectedMarker(loc);
+          mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng });
+        });
+
+        markersRef.current.push({ marker, pinDot: pinDot.element, pinFull: pinFull.element });
+      });
+
+      // Fit bounds when filters are active
+      if (filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
         const bounds = new window.google.maps.LatLngBounds();
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
-        lastFilterRef.current = filterKey;
       }
 
       // Geolocate once: if user is in Zgharta area, pan to their location
@@ -639,11 +551,10 @@ export default function ZghartaTourismApp() {
         }, () => {});
       }
       return () => {
-        if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
-        overlaysRef.current.forEach(o => o.setMap(null));
-        overlaysRef.current = [];
+        markersRef.current.forEach(({ marker }) => { marker.map = null; });
+        markersRef.current = [];
       };
-    }, [mapLoaded, mapFilter, villageFilter, favs]);
+    }, [mapLoaded, filteredLocations]);
 
     return <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
       {GOOGLE_MAPS_KEY ? (
