@@ -438,7 +438,7 @@ export default function ZghartaTourismApp() {
     const [showCatDrop, setShowCatDrop] = useState(false);
     const [showVillageDrop, setShowVillageDrop] = useState(false);
     const lastFilterRef = React.useRef('|');
-    const initialFitDone = React.useRef(false);
+    const geolocDone = React.useRef(false);
 
     const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
     const filteredLocations = allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village)));
@@ -476,8 +476,8 @@ export default function ZghartaTourismApp() {
       if (!mapLoaded || !mapRef.current || !window.google?.maps) return;
       if (!mapInstanceRef.current) {
         mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-          center: { lat: 34.305, lng: 35.975 },
-          zoom: 13,
+          center: { lat: 34.3955, lng: 35.8945 },
+          zoom: 15,
           disableDefaultUI: true,
           zoomControl: true,
           zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER },
@@ -614,12 +614,18 @@ export default function ZghartaTourismApp() {
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
         lastFilterRef.current = filterKey;
-      } else if (!initialFitDone.current && filteredLocations.length > 0) {
-        const bounds = new window.google.maps.LatLngBounds();
-        filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
-        if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
-        initialFitDone.current = true;
-        lastFilterRef.current = filterKey;
+      }
+
+      // Geolocate once: if user is in Zgharta area, pan to their location
+      if (!geolocDone.current && mapInstanceRef.current && navigator.geolocation) {
+        geolocDone.current = true;
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const { latitude, longitude } = pos.coords;
+          if (latitude >= 34.24 && latitude <= 34.42 && longitude >= 35.82 && longitude <= 36.00) {
+            mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
+            mapInstanceRef.current.setZoom(15);
+          }
+        }, () => {});
       }
     }, [mapLoaded, mapFilter, villageFilter, favs]);
 
