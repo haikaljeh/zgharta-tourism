@@ -182,6 +182,10 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - Tiny inline SVG icons for map dot markers
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - Preview card positioned with `bottom: 84px` to sit above the 76px nav bar
+- **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
+- **Geolocation:** On mount, requests user position; only pans to it if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
+- **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
+- **Soft color theme:** muted marker colors (`markerColors`), desaturated map styles (lighter water, landscape, road labels)
 
 ### Navigation
 - Tab-based via `tab` state — no React Router
