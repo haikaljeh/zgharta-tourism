@@ -54,7 +54,7 @@ export default function ZghartaTourismApp() {
       const cached = localStorage.getItem('zgharta-data');
       if (cached) {
         const { places: cp, businesses: cb, events: ce, ts } = JSON.parse(cached);
-        if (cp?.length) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); }
+        if (cp?.length && Date.now() - ts < 86400000) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); }
       }
     } catch {}
     setError(null);
@@ -218,7 +218,7 @@ export default function ZghartaTourismApp() {
               {React.createElement(catIcons[b.category] || MapPin, { style: { width: 13, height: 13, color: catColors[b.category] || '#059669' } })}
               <span style={{ fontSize: 11, color: catColors[b.category] || '#6b7280', fontWeight: 600, textTransform: 'capitalize' }}>{b.category}</span>
             </div>
-            <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15 }}>{isRTL ? b.nameAr : b.name}</h3>
+            <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15 }}>{isRTL ? (b.nameAr || b.name) : b.name}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{b.rating}</span><span style={{ fontSize: 13, color: '#9ca3af' }}>{b.priceRange}</span><span style={{ fontSize: 12, color: '#9ca3af' }}>· {b.village}</span></div>
           </div>
         </div>)}
@@ -273,16 +273,16 @@ export default function ZghartaTourismApp() {
     const [minRating, setMinRating] = useState(0);
     const [showFilters, setShowFilters] = useState(false);
 
-    const allItems = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))];
+    const allItems = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))], [places, businesses]);
 
     // Global search across everything
-    const searchResults = searchQ.length > 1 ? allItems.filter(i => {
+    const searchResults = React.useMemo(() => searchQ.length > 1 ? allItems.filter(i => {
       const q = searchQ.toLowerCase();
       return i.name.toLowerCase().includes(q) || (i.nameAr && i.nameAr.includes(searchQ)) || i.village.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
-    }).filter(i => !minRating || (i.rating && i.rating >= minRating)).slice(0, 12) : [];
+    }).filter(i => !minRating || (i.rating && i.rating >= minRating)).slice(0, 12) : [], [searchQ, allItems, minRating]);
 
-    const fPlaces = places.filter(p => catFilter === 'all' || p.category === catFilter);
-    const fBiz = businesses.filter(b => bizFilter === 'all' || b.category === bizFilter).filter(b => !minRating || (b.rating && b.rating >= minRating));
+    const fPlaces = React.useMemo(() => places.filter(p => catFilter === 'all' || p.category === catFilter), [places, catFilter]);
+    const fBiz = React.useMemo(() => businesses.filter(b => bizFilter === 'all' || b.category === bizFilter).filter(b => !minRating || (b.rating && b.rating >= minRating)), [businesses, bizFilter, minRating]);
 
     const CatIcon = ({ cat, size = 14 }) => { const I = catIcons[cat] || MapPin; return <I style={{ width: size, height: size, color: catColors[cat] || '#6b7280' }} />; };
 
@@ -314,7 +314,7 @@ export default function ZghartaTourismApp() {
             {searchResults.map(i => <button key={`${i.type}-${i.id}`} onClick={() => { i.type === 'place' ? setSelPlace(i) : setSelBiz(i); setSearchQ(''); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent', border: 'none', borderBottom: '1px solid #f9fafb', cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: catBgs[i.category] || '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><CatIcon cat={i.category} size={18} /></div>
               <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}>
-                <p style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? i.nameAr : i.name}</p>
+                <p style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? (i.nameAr || i.name) : i.name}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                   <span style={{ fontSize: 12, color: '#9ca3af' }}>{i.village}</span>
                   <span style={{ fontSize: 11, color: catColors[i.category] || '#6b7280', fontWeight: 500 }}>· {i.category}</span>
@@ -334,7 +334,7 @@ export default function ZghartaTourismApp() {
       </div>
 
       {/* Results list — hidden when searching */}
-      {searchQ.length <= 1 && <div style={{ padding: 16 }}>{expTab === 'places' ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fPlaces.map(p => <div key={p.id} onClick={() => setSelPlace(p)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={p.category} /><span style={{ fontSize: 12, color: catColors[p.category] || '#059669', fontWeight: 500 }}>{p.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? p.nameAr : p.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin style={{ width: 12, height: 12 }} />{p.village}</p></div></div>)}{fPlaces.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No places found', 'لا توجد أماكن')}</p>}</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fBiz.map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={b.category} /><span style={{ fontSize: 12, color: catColors[b.category] || '#059669', fontWeight: 500 }}>{b.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? b.nameAr : b.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{b.village}</p><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>{b.rating && <><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{b.rating}</span></>}<span style={{ fontSize: 13, color: '#9ca3af' }}>{b.priceRange}</span>{b.phone && <span style={{ fontSize: 12, color: '#10b981' }}>📞</span>}{b.website && <span style={{ fontSize: 12, color: '#3b82f6' }}>🌐</span>}</div></div></div>)}{fBiz.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No businesses found', 'لا توجد أعمال')}</p>}</div>}</div>}
+      {searchQ.length <= 1 && <div style={{ padding: 16 }}>{expTab === 'places' ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fPlaces.map(p => <div key={p.id} onClick={() => setSelPlace(p)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={p.category} /><span style={{ fontSize: 12, color: catColors[p.category] || '#059669', fontWeight: 500 }}>{p.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (p.nameAr || p.name) : p.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin style={{ width: 12, height: 12 }} />{p.village}</p></div></div>)}{fPlaces.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No places found', 'لا توجد أماكن')}</p>}</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fBiz.map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={b.category} /><span style={{ fontSize: 12, color: catColors[b.category] || '#059669', fontWeight: 500 }}>{b.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (b.nameAr || b.name) : b.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{b.village}</p><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>{b.rating && <><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{b.rating}</span></>}<span style={{ fontSize: 13, color: '#9ca3af' }}>{b.priceRange}</span>{b.phone && <span style={{ fontSize: 12, color: '#10b981' }}>📞</span>}{b.website && <span style={{ fontSize: 12, color: '#3b82f6' }}>🌐</span>}</div></div></div>)}{fBiz.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No businesses found', 'لا توجد أعمال')}</p>}</div>}</div>}
     </div>;
   };
 
@@ -343,11 +343,11 @@ export default function ZghartaTourismApp() {
     const [evTimeFilter, setEvTimeFilter] = useState('upcoming');
     const now = new Date();
     const catStyle = c => eventCatStyles[c] || { bg: '#dbeafe', color: '#2563eb' };
-    const fEvents = events
+    const fEvents = React.useMemo(() => events
       .filter(e => evFilter === 'all' || e.category === evFilter)
-      .filter(e => evTimeFilter === 'all' ? true : evTimeFilter === 'upcoming' ? new Date(e.date) >= now : new Date(e.date) < now);
-    const upcomingCount = events.filter(e => new Date(e.date) >= now).length;
-    const calUrl = (e) => `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(isRTL ? e.nameAr || e.name : e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent((isRTL ? e.descriptionAr : e.description) || '')}&location=${encodeURIComponent((isRTL ? e.locationAr : e.location) || '')}`;
+      .filter(e => evTimeFilter === 'all' ? true : evTimeFilter === 'upcoming' ? new Date(e.date) >= now : new Date(e.date) < now), [events, evFilter, evTimeFilter]);
+    const upcomingCount = React.useMemo(() => events.filter(e => new Date(e.date) >= now).length, [events]);
+    const calUrl = (e) => e.date ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(isRTL ? e.nameAr || e.name : e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent((isRTL ? (e.descriptionAr || e.description) : e.description) || '')}&location=${encodeURIComponent((isRTL ? (e.locationAr || e.location) : e.location) || '')}` : '#';
 
     return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
@@ -372,10 +372,10 @@ export default function ZghartaTourismApp() {
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: s.bg, color: s.color, fontWeight: 500 }}>{e.category}</span>
                 {isPast && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, background: '#f3f4f6', color: '#9ca3af' }}>{t('Past', 'سابق')}</span>}
               </div>
-              <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15, marginBottom: 6, lineHeight: 1.3 }}>{isRTL ? e.nameAr : e.name}</h3>
+              <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15, marginBottom: 6, lineHeight: 1.3 }}>{isRTL ? (e.nameAr || e.name) : e.name}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#9ca3af', fontSize: 12, flexWrap: 'wrap' }}>
                 {e.time && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock style={{ width: 11, height: 11 }} />{e.time}</span>}
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{isRTL ? e.locationAr : e.location}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{isRTL ? (e.locationAr || e.location) : e.location}</span>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}>{isRTL ? <ChevronLeft style={{ width: 16, height: 16, color: '#d1d5db' }} /> : <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db' }} />}</div>
@@ -389,7 +389,7 @@ export default function ZghartaTourismApp() {
   // Event Detail Modal
   const EventModal = ({ event: e, onClose }) => {
     const s = eventCatStyles[e.category] || { bg: '#dbeafe', color: '#2563eb' };
-    const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent(e.description || '')}&location=${encodeURIComponent(e.location || '')}`;
+    const calUrl = e.date ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent(e.description || '')}&location=${encodeURIComponent(e.location || '')}` : '#';
     return <div style={{ position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' }}>
       {/* Hero */}
       <div style={{ position: 'relative', height: 260, background: `linear-gradient(135deg, ${s.bg} 0%, white 100%)` }}>
@@ -404,7 +404,7 @@ export default function ZghartaTourismApp() {
         </div>
       </div>
       <div style={{ padding: 24, textAlign: isRTL ? 'right' : 'left' }}>
-        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 16, lineHeight: 1.3 }}>{isRTL ? e.nameAr : e.name}</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 16, lineHeight: 1.3 }}>{isRTL ? (e.nameAr || e.name) : e.name}</h1>
         {/* Date & time info */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, padding: 16, background: '#f9fafb', borderRadius: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -417,10 +417,10 @@ export default function ZghartaTourismApp() {
           </div>}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <MapPin style={{ width: 18, height: 18, color: '#10b981' }} />
-            <span style={{ fontSize: 15, color: '#1f2937' }}>{isRTL ? e.locationAr : e.location} · {e.village}</span>
+            <span style={{ fontSize: 15, color: '#1f2937' }}>{isRTL ? (e.locationAr || e.location) : e.location} · {e.village}</span>
           </div>
         </div>
-        {(isRTL ? e.descriptionAr : e.description) && <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? e.descriptionAr : e.description}</p>}
+        {(isRTL ? (e.descriptionAr || e.description) : e.description) && <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? (e.descriptionAr || e.description) : e.description}</p>}
         {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <a href={calUrl} target="_blank" rel="noopener noreferrer" style={primaryBtn}><CalendarPlus style={{ width: 18, height: 18 }} />{t('Add to Calendar', 'أضف للتقويم')}</a>
@@ -439,6 +439,7 @@ export default function ZghartaTourismApp() {
     const renderRef = React.useRef(null);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [mapLoaded, setMapLoaded] = useState(false);
+    const [mapError, setMapError] = useState(false);
     const [mapFilter, setMapFilter] = useState([]);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
@@ -447,10 +448,9 @@ export default function ZghartaTourismApp() {
     const lastFilterRef = React.useRef('|');
     const geolocDone = React.useRef(false);
 
-    const allLocations = [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng);
-    const filteredLocations = allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village)));
-
-    const villages = [...new Set(allLocations.map(l => l.village))].sort();
+    const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
+    const filteredLocations = React.useMemo(() => allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village))), [allLocations, mapFilter, villageFilter]);
+    const villages = React.useMemo(() => [...new Set(allLocations.map(l => l.village))].sort(), [allLocations]);
     const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
     const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
@@ -470,12 +470,14 @@ export default function ZghartaTourismApp() {
     useEffect(() => {
       if (!GOOGLE_MAPS_KEY) return;
       if (window.google?.maps) { setMapLoaded(true); return; }
+      let checkTimer;
       const existing = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existing) { const check = () => { if (window.google?.maps) setMapLoaded(true); else setTimeout(check, 200); }; check(); return; }
+      if (existing) { const check = () => { if (window.google?.maps) setMapLoaded(true); else checkTimer = setTimeout(check, 200); }; check(); return () => clearTimeout(checkTimer); }
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
       script.async = true; script.defer = true;
       script.onload = () => setMapLoaded(true);
+      script.onerror = () => setMapError(true);
       document.head.appendChild(script);
     }, []);
 
@@ -636,11 +638,20 @@ export default function ZghartaTourismApp() {
           }
         }, () => {});
       }
+      return () => {
+        if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+        overlaysRef.current.forEach(o => o.setMap(null));
+        overlaysRef.current = [];
+      };
     }, [mapLoaded, mapFilter, villageFilter, favs]);
 
     return <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
       {GOOGLE_MAPS_KEY ? (
-        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        mapError ? <div style={{ width: '100%', height: '100%', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 48, height: 48, color: '#d1d5db', margin: '0 auto 12px' }} /><p style={{ color: '#6b7280', marginBottom: 12 }}>{t('Map failed to load', 'فشل تحميل الخريطة')}</p><button onClick={() => window.location.reload()} style={{ padding: '8px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer', fontSize: 14 }}>{t('Reload', 'إعادة تحميل')}</button></div></div>
+        : <>
+          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+          {!mapLoaded && <div style={{ position: 'absolute', inset: 0, background: '#f0f4ee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 32, height: 32, color: '#10b981', animation: 'spin 1s linear infinite' }} /></div>}
+        </>
       ) : (
         <div style={{ width: '100%', height: '100%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key', 'أضف مفتاح خرائط جوجل')}</p></div></div>
       )}
@@ -713,7 +724,7 @@ export default function ZghartaTourismApp() {
                 <span style={{ fontSize: 12, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
                 {selectedMarker.rating && <><Star style={{ width: 13, height: 13, color: '#fbbf24', fill: '#fbbf24', [isRTL ? 'marginRight' : 'marginLeft']: 4 }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span></>}
               </div>
-              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? selectedMarker.nameAr : selectedMarker.name}</h3>
+              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? (selectedMarker.nameAr || selectedMarker.name) : selectedMarker.name}</h3>
               <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{selectedMarker.village}{selectedMarker.priceRange && <span style={{ color: '#9ca3af' }}> · {selectedMarker.priceRange}</span>}</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
@@ -728,18 +739,20 @@ export default function ZghartaTourismApp() {
   };
 
   const FavsScreen = () => {
-    const fP = places.filter(p => favs.places.includes(p.id));
-    const fB = businesses.filter(b => favs.businesses.includes(b.id));
-    const allSaved = [...fP.map(p => ({ ...p, type: 'place' })), ...fB.map(b => ({ ...b, type: 'business' }))];
+    const allSaved = React.useMemo(() => {
+      const fP = places.filter(p => favs.places.includes(p.id));
+      const fB = businesses.filter(b => favs.businesses.includes(b.id));
+      return [...fP.map(p => ({ ...p, type: 'place' })), ...fB.map(b => ({ ...b, type: 'business' }))];
+    }, [places, businesses, favs]);
     const empty = allSaved.length === 0;
     const totalCount = allSaved.length;
 
     // Group by category
-    const groups = {};
-    allSaved.forEach(i => {
-      if (!groups[i.category]) groups[i.category] = [];
-      groups[i.category].push(i);
-    });
+    const groups = React.useMemo(() => {
+      const g = {};
+      allSaved.forEach(i => { if (!g[i.category]) g[i.category] = []; g[i.category].push(i); });
+      return g;
+    }, [allSaved]);
     const catEmoji = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', shop: '🛍', cafe: '☕' };
 
     const shareTrip = async () => {
@@ -784,7 +797,7 @@ export default function ZghartaTourismApp() {
                 <div onClick={() => i.type === 'place' ? setSelPlace(i) : setSelBiz(i)} style={{ flex: 1, display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row', cursor: 'pointer' }}>
                   <PlaceImage src={i.image} category={i.category} name={i.name} style={{ width: 72, height: 72, flexShrink: 0 }} />
                   <div style={{ flex: 1, padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
-                    <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? i.nameAr : i.name}</h4>
+                    <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? (i.nameAr || i.name) : i.name}</h4>
                     <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 10, height: 10 }} />{i.village}</p>
                     {i.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 3 }}><Star style={{ width: 11, height: 11, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 12, color: '#374151' }}>{i.rating}</span></div>}
                   </div>
@@ -818,8 +831,8 @@ export default function ZghartaTourismApp() {
       </div>
       <div style={{ padding: 24, textAlign: isRTL ? 'right' : 'left' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}><MapPin style={{ width: 16, height: 16, color: '#10b981' }} /><span style={{ color: '#059669' }}>{p.village}</span></div>
-        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 16 }}>{isRTL ? p.nameAr : p.name}</h1>
-        <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? p.descriptionAr : p.description}</p>
+        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 16 }}>{isRTL ? (p.nameAr || p.name) : p.name}</h1>
+        <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? (p.descriptionAr || p.description) : p.description}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           {p.openHours && <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16 }}><Clock style={{ width: 20, height: 20, color: '#10b981', marginBottom: 8 }} /><p style={{ fontSize: 14, color: '#6b7280' }}>{t('Hours', 'الساعات')}</p><p style={{ fontSize: 14, fontWeight: 500, color: '#1f2937' }}>{p.openHours}</p></div>}
           {p.coordinates?.lat && <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16 }}><Navigation style={{ width: 20, height: 20, color: '#10b981', marginBottom: 8 }} /><p style={{ fontSize: 14, color: '#6b7280' }}>{t('Location', 'الموقع')}</p><p style={{ fontSize: 14, fontWeight: 500, color: '#1f2937' }}>{p.coordinates.lat?.toFixed(4)}, {p.coordinates.lng?.toFixed(4)}</p></div>}
@@ -836,7 +849,7 @@ export default function ZghartaTourismApp() {
             {nearby.map(n => <div key={`${n.type}-${n.id}`} onClick={() => { n.type === 'place' ? setSelPlace(n) : setSelBiz(n); }} style={{ flexShrink: 0, width: 140, background: '#f9fafb', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}>
               <PlaceImage src={n.image} category={n.category} name={n.name} style={{ width: '100%', height: 90 }} />
               <div style={{ padding: 10 }}>
-                <p style={{ fontWeight: 600, fontSize: 13, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? n.nameAr : n.name}</p>
+                <p style={{ fontWeight: 600, fontSize: 13, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? (n.nameAr || n.name) : n.name}</p>
                 <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{n.dist < 1 ? `${(n.dist * 1000).toFixed(0)}m` : `${n.dist.toFixed(1)}km`} · {n.village}</p>
               </div>
             </div>)}
@@ -876,12 +889,12 @@ export default function ZghartaTourismApp() {
           {b.verified && <span style={{ background: '#d1fae5', color: '#059669', fontSize: 12, padding: '3px 10px', borderRadius: 9999, fontWeight: 500 }}>✓ {t('Verified', 'موثق')}</span>}
           {b.priceRange && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 12, padding: '3px 10px', borderRadius: 9999 }}>{b.priceRange}</span>}
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 6 }}>{isRTL ? b.nameAr : b.name}</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 6 }}>{isRTL ? (b.nameAr || b.name) : b.name}</h1>
         {b.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
           {[1, 2, 3, 4, 5].map(s => <Star key={s} style={{ width: 18, height: 18, color: s <= Math.round(b.rating) ? '#fbbf24' : '#e5e7eb', fill: s <= Math.round(b.rating) ? '#fbbf24' : '#e5e7eb' }} />)}
           <span style={{ fontWeight: 600, color: '#374151', [isRTL ? 'marginRight' : 'marginLeft']: 4 }}>{b.rating}</span>
         </div>}
-        {(isRTL ? b.descriptionAr : b.description) && <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? b.descriptionAr : b.description}</p>}
+        {(isRTL ? (b.descriptionAr || b.description) : b.description) && <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? (b.descriptionAr || b.description) : b.description}</p>}
         {b.specialties?.length > 0 && <div style={{ marginBottom: 24 }}><h3 style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8, fontSize: 15 }}>{t('Specialties', 'التخصصات')}</h3><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{b.specialties.map((s, i) => <span key={i} style={{ background: '#f3f4f6', color: '#4b5563', fontSize: 13, padding: '5px 14px', borderRadius: 9999 }}>{s}</span>)}</div></div>}
         {/* Action buttons - row 1: Call & Website */}
         <div style={{ display: 'grid', gridTemplateColumns: b.phone && b.website ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
@@ -904,7 +917,7 @@ export default function ZghartaTourismApp() {
             {nearby.map(n => <div key={`${n.type}-${n.id}`} onClick={() => { n.type === 'place' ? setSelPlace(n) : setSelBiz(n); }} style={{ flexShrink: 0, width: 140, background: '#f9fafb', borderRadius: 14, overflow: 'hidden', cursor: 'pointer' }}>
               <PlaceImage src={n.image} category={n.category} name={n.name} style={{ width: '100%', height: 90 }} />
               <div style={{ padding: 10 }}>
-                <p style={{ fontWeight: 600, fontSize: 13, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? n.nameAr : n.name}</p>
+                <p style={{ fontWeight: 600, fontSize: 13, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? (n.nameAr || n.name) : n.name}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <span style={{ fontSize: 11, color: '#9ca3af' }}>{n.dist < 1 ? `${(n.dist * 1000).toFixed(0)}m` : `${n.dist.toFixed(1)}km`}</span>
                   {n.rating && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {n.rating}</span>}
