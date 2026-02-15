@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronDown, ChevronUp, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Cross, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, Trash2, CalendarPlus, Filter } from 'lucide-react';
+import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Cross, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus, Filter } from 'lucide-react';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
@@ -40,6 +40,13 @@ export default function ZghartaTourismApp() {
 
   const isRTL = lang === 'ar';
   const t = (en, ar) => lang === 'en' ? en : ar;
+
+  // Shared styles
+  const eventCatStyles = { festival: { bg: '#f3e8ff', color: '#9333ea' }, religious: { bg: '#fef3c7', color: '#d97706' }, nature: { bg: '#dcfce7', color: '#16a34a' }, cultural: { bg: '#dbeafe', color: '#2563eb' } };
+  const modalBackBtn = { position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const circleBtn = { width: 40, height: 40, borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const primaryBtn = { background: '#10b981', color: 'white', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+  const secondaryBtn = { background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
 
   const fetchData = async () => {
     // Try showing cached data immediately while we fetch fresh
@@ -335,7 +342,7 @@ export default function ZghartaTourismApp() {
     const [evFilter, setEvFilter] = useState('all');
     const [evTimeFilter, setEvTimeFilter] = useState('upcoming');
     const now = new Date();
-    const catStyle = c => ({ festival: { bg: '#f3e8ff', color: '#9333ea' }, religious: { bg: '#fef3c7', color: '#d97706' }, nature: { bg: '#dcfce7', color: '#16a34a' }, cultural: { bg: '#dbeafe', color: '#2563eb' } }[c] || { bg: '#dbeafe', color: '#2563eb' });
+    const catStyle = c => eventCatStyles[c] || { bg: '#dbeafe', color: '#2563eb' };
     const fEvents = events
       .filter(e => evFilter === 'all' || e.category === evFilter)
       .filter(e => evTimeFilter === 'all' ? true : evTimeFilter === 'upcoming' ? new Date(e.date) >= now : new Date(e.date) < now);
@@ -381,7 +388,7 @@ export default function ZghartaTourismApp() {
 
   // Event Detail Modal
   const EventModal = ({ event: e, onClose }) => {
-    const s = { festival: { bg: '#f3e8ff', color: '#9333ea' }, religious: { bg: '#fef3c7', color: '#d97706' }, nature: { bg: '#dcfce7', color: '#16a34a' }, cultural: { bg: '#dbeafe', color: '#2563eb' } }[e.category] || { bg: '#dbeafe', color: '#2563eb' };
+    const s = eventCatStyles[e.category] || { bg: '#dbeafe', color: '#2563eb' };
     const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent(e.description || '')}&location=${encodeURIComponent(e.location || '')}`;
     return <div style={{ position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto' }}>
       {/* Hero */}
@@ -390,8 +397,8 @@ export default function ZghartaTourismApp() {
           <span style={{ fontSize: 64, fontWeight: 800, color: s.color, lineHeight: 1, opacity: 0.15 }}>{new Date(e.date).getDate()}</span>
           <Calendar style={{ width: 48, height: 48, color: s.color, marginTop: -20 }} />
         </div>
-        <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
-        <button onClick={() => shareLoc(e.name, e.location || e.village)} style={{ position: 'absolute', top: 16, right: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
+        <button onClick={onClose} style={modalBackBtn}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
+        <button onClick={() => shareLoc(e.name, e.location || e.village)} style={{ ...circleBtn, position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.9)' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', bottom: 16, left: 16 }}>
           <span style={{ fontSize: 12, padding: '4px 12px', borderRadius: 9999, background: s.color, color: 'white', fontWeight: 600 }}>{e.category}</span>
         </div>
@@ -416,8 +423,8 @@ export default function ZghartaTourismApp() {
         {(isRTL ? e.descriptionAr : e.description) && <p style={{ color: '#4b5563', lineHeight: 1.7, marginBottom: 24 }}>{isRTL ? e.descriptionAr : e.description}</p>}
         {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <a href={calUrl} target="_blank" rel="noopener noreferrer" style={{ background: '#10b981', color: 'white', padding: 14, borderRadius: 14, textDecoration: 'none', fontSize: 15, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><CalendarPlus style={{ width: 18, height: 18 }} />{t('Add to Calendar', 'أضف للتقويم')}</a>
-          <button onClick={() => shareLoc(e.name, e.location || e.village)} style={{ background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Share2 style={{ width: 18, height: 18 }} />{t('Share', 'مشاركة')}</button>
+          <a href={calUrl} target="_blank" rel="noopener noreferrer" style={primaryBtn}><CalendarPlus style={{ width: 18, height: 18 }} />{t('Add to Calendar', 'أضف للتقويم')}</a>
+          <button onClick={() => shareLoc(e.name, e.location || e.village)} style={secondaryBtn}><Share2 style={{ width: 18, height: 18 }} />{t('Share', 'مشاركة')}</button>
         </div>
       </div>
     </div>;
@@ -568,7 +575,6 @@ export default function ZghartaTourismApp() {
               const icon = tinyIcons[loc.category] || '';
               const isSaved = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
               const dotSize = zoom >= 16 ? 26 : zoom >= 14 ? 22 : 18;
-              const borderCol = isSaved ? '#f59e0b' : color;
               div.innerHTML = `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid ${isSaved ? '#f59e0b' : 'white'};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">${dotSize >= 22 ? icon : ''}</div>`;
               div.addEventListener('mouseenter', () => { div.style.transform = 'scale(1.3)'; div.style.zIndex = '999'; });
               div.addEventListener('mouseleave', () => { div.style.transform = 'scale(1)'; div.style.zIndex = '1'; });
@@ -799,10 +805,10 @@ export default function ZghartaTourismApp() {
       <div style={{ position: 'relative', height: 288 }}>
         <PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: '100%', height: '100%' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
-        <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
+        <button onClick={onClose} style={modalBackBtn}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => shareLoc(p.name, p.village, p.coordinates)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
-          <button onClick={() => toggleFav(p.id, 'place')} style={{ width: 40, height: 40, background: isFav(p.id, 'place') ? '#ef4444' : 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart style={{ width: 20, height: 20, color: isFav(p.id, 'place') ? 'white' : '#1f2937', fill: isFav(p.id, 'place') ? 'white' : 'none' }} /></button>
+          <button onClick={() => shareLoc(p.name, p.village, p.coordinates)} style={{ ...circleBtn, background: 'rgba(255,255,255,0.9)' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
+          <button onClick={() => toggleFav(p.id, 'place')} style={{ ...circleBtn, background: isFav(p.id, 'place') ? '#ef4444' : 'rgba(255,255,255,0.9)' }}><Heart style={{ width: 20, height: 20, color: isFav(p.id, 'place') ? 'white' : '#1f2937', fill: isFav(p.id, 'place') ? 'white' : 'none' }} /></button>
         </div>
         {/* Category badge */}
         <div style={{ position: 'absolute', bottom: 16, left: 16, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: 9999, padding: '5px 12px' }}>
@@ -820,8 +826,8 @@ export default function ZghartaTourismApp() {
         </div>
         {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: p.coordinates?.lat ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 28 }}>
-          {p.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.coordinates.lat},${p.coordinates.lng}`, '_blank')} style={{ background: '#10b981', color: 'white', padding: 14, borderRadius: 14, border: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
-          {p.coordinates?.lat && <button onClick={() => showOnMap(p.coordinates)} style={{ background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Map style={{ width: 18, height: 18 }} />{t('Show on Map', 'على الخريطة')}</button>}
+          {p.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.coordinates.lat},${p.coordinates.lng}`, '_blank')} style={primaryBtn}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
+          {p.coordinates?.lat && <button onClick={() => showOnMap(p.coordinates)} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('Show on Map', 'على الخريطة')}</button>}
         </div>
         {/* Nearby section */}
         {nearby.length > 0 && <div>
@@ -847,10 +853,10 @@ export default function ZghartaTourismApp() {
       <div style={{ position: 'relative', height: 288 }}>
         <PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: '100%', height: '100%' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
-        <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
+        <button onClick={onClose} style={modalBackBtn}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => shareLoc(b.name, b.village, b.coordinates)} style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
-          <button onClick={() => toggleFav(b.id, 'business')} style={{ width: 40, height: 40, background: isFav(b.id, 'business') ? '#ef4444' : 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart style={{ width: 20, height: 20, color: isFav(b.id, 'business') ? 'white' : '#1f2937', fill: isFav(b.id, 'business') ? 'white' : 'none' }} /></button>
+          <button onClick={() => shareLoc(b.name, b.village, b.coordinates)} style={{ ...circleBtn, background: 'rgba(255,255,255,0.9)' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
+          <button onClick={() => toggleFav(b.id, 'business')} style={{ ...circleBtn, background: isFav(b.id, 'business') ? '#ef4444' : 'rgba(255,255,255,0.9)' }}><Heart style={{ width: 20, height: 20, color: isFav(b.id, 'business') ? 'white' : '#1f2937', fill: isFav(b.id, 'business') ? 'white' : 'none' }} /></button>
         </div>
         {/* Category + rating badge */}
         <div style={{ position: 'absolute', bottom: 16, left: 16, display: 'flex', gap: 8 }}>
@@ -879,13 +885,13 @@ export default function ZghartaTourismApp() {
         {b.specialties?.length > 0 && <div style={{ marginBottom: 24 }}><h3 style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8, fontSize: 15 }}>{t('Specialties', 'التخصصات')}</h3><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{b.specialties.map((s, i) => <span key={i} style={{ background: '#f3f4f6', color: '#4b5563', fontSize: 13, padding: '5px 14px', borderRadius: 9999 }}>{s}</span>)}</div></div>}
         {/* Action buttons - row 1: Call & Website */}
         <div style={{ display: 'grid', gridTemplateColumns: b.phone && b.website ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
-          {b.phone && <a href={`tel:${b.phone}`} style={{ background: '#10b981', color: 'white', padding: 14, borderRadius: 14, textDecoration: 'none', fontSize: 15, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Phone style={{ width: 18, height: 18 }} />{t('Call', 'اتصل')}</a>}
-          {b.website && <a href={b.website} target="_blank" rel="noopener noreferrer" style={{ background: '#3b82f6', color: 'white', padding: 14, borderRadius: 14, textDecoration: 'none', fontSize: 15, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Globe style={{ width: 18, height: 18 }} />{t('Website', 'الموقع')}</a>}
+          {b.phone && <a href={`tel:${b.phone}`} style={primaryBtn}><Phone style={{ width: 18, height: 18 }} />{t('Call', 'اتصل')}</a>}
+          {b.website && <a href={b.website} target="_blank" rel="noopener noreferrer" style={{ ...primaryBtn, background: '#3b82f6' }}><Globe style={{ width: 18, height: 18 }} />{t('Website', 'الموقع')}</a>}
         </div>
         {/* Action buttons - row 2: Directions & Show on Map */}
         <div style={{ display: 'grid', gridTemplateColumns: b.coordinates?.lat ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
-          {b.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${b.coordinates.lat},${b.coordinates.lng}`, '_blank')} style={{ background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
-          {b.coordinates?.lat && <button onClick={() => showOnMap(b.coordinates)} style={{ background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Map style={{ width: 18, height: 18 }} />{t('On Map', 'الخريطة')}</button>}
+          {b.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${b.coordinates.lat},${b.coordinates.lng}`, '_blank')} style={secondaryBtn}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
+          {b.coordinates?.lat && <button onClick={() => showOnMap(b.coordinates)} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('On Map', 'الخريطة')}</button>}
         </div>
         {/* Google Maps link for reviews */}
         {b.coordinates?.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + ' ' + b.village + ' Lebanon')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', color: '#6b7280', fontSize: 14, textDecoration: 'none', marginBottom: 24 }}>
