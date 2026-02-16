@@ -674,21 +674,29 @@ export default function ZghartaTourismApp() {
       mapInstanceRef.current.addListener('idle', () => {
         updateCards();
         const c = mapInstanceRef.current.getCenter();
-        if (c) setOutsideBounds(c.lat() < 34.275 || c.lat() > 34.420 || c.lng() < 35.830 || c.lng() > 36.005);
+        if (c) setOutsideBounds(c.lat() < 34.260 || c.lat() > 34.425 || c.lng() < 35.830 || c.lng() > 36.015);
       });
       // Zgharta caza boundary polygon
       if (!boundaryRef.current) {
         boundaryRef.current = new window.google.maps.Polygon({
           paths: [
-            {lat: 34.413, lng: 35.840}, {lat: 34.420, lng: 35.860}, {lat: 34.418, lng: 35.890},
-            {lat: 34.415, lng: 35.920}, {lat: 34.410, lng: 35.945}, {lat: 34.408, lng: 35.960},
-            {lat: 34.400, lng: 35.975}, {lat: 34.390, lng: 35.985}, {lat: 34.370, lng: 35.995},
-            {lat: 34.350, lng: 36.000}, {lat: 34.330, lng: 35.995}, {lat: 34.310, lng: 35.980},
-            {lat: 34.300, lng: 35.965}, {lat: 34.295, lng: 35.945}, {lat: 34.290, lng: 35.920},
-            {lat: 34.285, lng: 35.895}, {lat: 34.280, lng: 35.870}, {lat: 34.285, lng: 35.850},
-            {lat: 34.300, lng: 35.840}, {lat: 34.320, lng: 35.835}, {lat: 34.345, lng: 35.838},
-            {lat: 34.365, lng: 35.835}, {lat: 34.385, lng: 35.835}, {lat: 34.400, lng: 35.838},
-            {lat: 34.413, lng: 35.840},
+            // Western lowlands (Koura/Tripoli border)
+            {lat: 34.275, lng: 35.842}, {lat: 34.285, lng: 35.835}, {lat: 34.310, lng: 35.835},
+            {lat: 34.330, lng: 35.838}, {lat: 34.350, lng: 35.840}, {lat: 34.370, lng: 35.838},
+            {lat: 34.385, lng: 35.840}, {lat: 34.400, lng: 35.843}, {lat: 34.413, lng: 35.848},
+            // Northern edge (Miniyeh-Danniyeh/Akkar border)
+            {lat: 34.418, lng: 35.860}, {lat: 34.420, lng: 35.880}, {lat: 34.418, lng: 35.905},
+            {lat: 34.415, lng: 35.925}, {lat: 34.412, lng: 35.940}, {lat: 34.408, lng: 35.955},
+            {lat: 34.400, lng: 35.968},
+            // Eastern mountains (Qadisha Valley / Horsh Ehden)
+            {lat: 34.388, lng: 35.978}, {lat: 34.375, lng: 35.988}, {lat: 34.355, lng: 35.998},
+            {lat: 34.340, lng: 36.005}, {lat: 34.325, lng: 36.008}, {lat: 34.310, lng: 36.005},
+            {lat: 34.298, lng: 35.995}, {lat: 34.288, lng: 35.980},
+            // Southern mountains (Bsharri/Batroun border)
+            {lat: 34.280, lng: 35.960}, {lat: 34.275, lng: 35.940}, {lat: 34.270, lng: 35.920},
+            {lat: 34.268, lng: 35.900},
+            // Southern lowlands (Koura/Batroun border)
+            {lat: 34.268, lng: 35.880}, {lat: 34.270, lng: 35.860}, {lat: 34.275, lng: 35.842},
           ],
           strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 3,
           fillColor: '#10b981', fillOpacity: 0.05,
@@ -802,7 +810,7 @@ export default function ZghartaTourismApp() {
       geolocDone.current = true;
       navigator.geolocation.getCurrentPosition((pos) => {
         const { latitude, longitude } = pos.coords;
-        if (latitude >= 34.275 && latitude <= 34.420 && longitude >= 35.830 && longitude <= 36.005) {
+        if (latitude >= 34.260 && latitude <= 34.425 && longitude >= 35.830 && longitude <= 36.015) {
           mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
           mapInstanceRef.current.setZoom(15);
         }
