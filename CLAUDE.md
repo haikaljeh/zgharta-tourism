@@ -88,7 +88,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | `ExploreScreen` | `'explore'` | `<ExploreScreen />` | Warm gradient list view with global search, rating filter, village filter dropdown (synced with MapScreen via `mapVillageFilter`), icon-enriched category pills with per-category colors, card shadows with inline favorite hearts, colored category badges, active filters summary bar with removable tags, magazine-style empty state with clear-all button |
 | `EventsScreen` | `'events'` | `<EventsScreen />` | Events list with upcoming/past/all toggle and category filters |
 | `MapScreen` | `'map'` | `{MapScreen()}` (function call) | Google Maps with 3-tier HtmlMarker overlays, frosted glass search/filters, locate-me button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel. **Always mounted** (hidden via `display:none` when not active tab) |
-| `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category, share-trip, view-on-map |
+| `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category (ordered via `catOrder` array), share-trip, view-on-map |
 
 **Rendering note:** MapScreen and FavsScreen are called as functions (not components) because their hooks are lifted to the parent scope. This prevents React from unmounting/remounting them on parent re-renders (which would destroy the Google Maps instance or cause image flicker). Other screens still render as `<Component />` with hooks inside.
 
@@ -173,6 +173,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
+- **Canonical category order:** Restaurant → Shop → Heritage → Nature → Hotel → Religious → Cafe — used consistently across Explore, Guide, Map, and Saved screens. GuideScreen and MapScreen omit Shop (not applicable). FavsScreen uses a `catOrder` array to sort dynamic groups.
 - Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to icons, hex colors, and background colors
 - **Religious icon:** Custom `StickCross` SVG component (thin stick cross) used everywhere instead of lucide `Cross`
 - Map marker colors in separate `markerColors` object
@@ -200,7 +201,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 ### Performance & State Architecture
 - **Lifted hooks pattern:** MapScreen and FavsScreen hooks (`useState`, `useEffect`, `useRef`, `useMemo`) are lifted to the parent `ZghartaTourismApp` scope. This prevents component identity changes from causing unmount/remount (which would destroy the Google Maps instance or trigger image reload flicker). The loading/error early returns are placed AFTER all hooks to comply with React's rules of hooks.
 - **`favsRef`** — Ref tracking latest `favs` state; used by the marker creation effect so `favs` is not in its dependency array. A separate lightweight effect updates marker visuals in-place when favs change (no marker destruction/recreation, no zoom disruption).
-- **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (map), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `favsGroups` (favs)
+- **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (map), `allItems`, `exploreVillages`, `filteredItems` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `favsGroups` (favs)
 - **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
 - **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions
 
