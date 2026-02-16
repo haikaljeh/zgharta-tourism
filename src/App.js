@@ -441,6 +441,7 @@ export default function ZghartaTourismApp() {
     const mapInstanceRef = React.useRef(null);
     const markersRef = React.useRef([]);
     const [selectedMarker, setSelectedMarker] = useState(null);
+    const selectedMarkerRef = React.useRef(null);
     const [visibleCards, setVisibleCards] = useState([]);
     const carouselRef = React.useRef(null);
     const visibleCardsRef = React.useRef([]);
@@ -545,7 +546,7 @@ export default function ZghartaTourismApp() {
             { featureType: 'transit.station', stylers: [{ visibility: 'off' }] },
           ],
         });
-        mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
+        mapInstanceRef.current.addListener('click', () => { selectedMarkerRef.current = null; setSelectedMarker(null); });
         mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
@@ -563,7 +564,14 @@ export default function ZghartaTourismApp() {
           if (!a.featured && b.featured) return 1;
           return (b.rating || 0) - (a.rating || 0);
         });
-        const cards = visible.slice(0, 8);
+        let cards = visible.slice(0, 8);
+        // Ensure selected marker is always in the card list
+        if (selectedMarkerRef.current) {
+          const sel = selectedMarkerRef.current;
+          if (!cards.find(c => c.id === sel.id && c.type === sel.type)) {
+            cards = [sel, ...cards.slice(0, 7)];
+          }
+        }
         setVisibleCards(cards);
         visibleCardsRef.current = cards;
       };
@@ -621,7 +629,7 @@ export default function ZghartaTourismApp() {
         const overlay = new HtmlMarker(
           { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
           elements,
-          () => { setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
+          () => { selectedMarkerRef.current = loc; setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
         );
         overlay.setMap(mapInstanceRef.current);
 
@@ -659,11 +667,16 @@ export default function ZghartaTourismApp() {
 
     useEffect(() => {
       if (!selectedMarker || !carouselRef.current) return;
-      const idx = visibleCardsRef.current.findIndex(v => v.id === selectedMarker.id && v.type === selectedMarker.type);
-      if (idx >= 0 && carouselRef.current.children[idx]) {
-        carouselRef.current.children[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      }
-    }, [selectedMarker]);
+      // Delay to let updateCards/render settle after panTo triggers idle
+      const timer = setTimeout(() => {
+        if (!carouselRef.current) return;
+        const idx = visibleCardsRef.current.findIndex(v => v.id === selectedMarker.id && v.type === selectedMarker.type);
+        if (idx >= 0 && carouselRef.current.children[idx]) {
+          carouselRef.current.children[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }, [selectedMarker, visibleCards]);
 
     const handleLocateMe = () => {
       if (!navigator.geolocation || !mapInstanceRef.current) return;
