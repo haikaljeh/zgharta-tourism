@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus, Filter } from 'lucide-react';
+import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus } from 'lucide-react';
 
 const StickCross = ({ style = {}, ...props }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={style.width || 24} height={style.height || 24} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={style} {...props}>
@@ -53,6 +53,10 @@ export default function ZghartaTourismApp() {
   const circleBtn = { width: 40, height: 40, borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const primaryBtn = { background: '#10b981', color: 'white', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
   const secondaryBtn = { background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+  const modalContainer = { position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' };
+  const screenContainer = { minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' };
+  const stickyHeader = { position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' };
+  const heroGradient = { position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' };
 
   const fetchData = async () => {
     // Try showing cached data immediately while we fetch fresh
@@ -121,8 +125,7 @@ export default function ZghartaTourismApp() {
   };
 
   // Show on map helper
-  const showOnMap = (coords) => { setSelPlace(null); setSelBiz(null); setTab('map'); };
-
+  const showOnMap = () => { setSelPlace(null); setSelBiz(null); setTab('map'); };
 
   // Consistent icon map used across all screens
   const catIcons = { religious: StickCross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee };
@@ -268,9 +271,9 @@ export default function ZghartaTourismApp() {
         <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, textAlign: isRTL ? 'right' : 'left' }}>{t('Getting There', 'كيف تصل')}</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {[
-            { from: t('From Beirut', 'من بيروت'), time: t('~2h drive (120 km)', '~ساعتان بالسيارة (120 كم)'), route: t('Via Chekka highway, then mountain road', 'عبر أوتوستراد شكا ثم طريق الجبل'), link: 'https://www.google.com/maps/dir/Beirut,+Lebanon/Zgharta,+Lebanon/' },
-            { from: t('From Tripoli', 'من طرابلس'), time: t('~30 min drive (25 km)', '~30 دقيقة بالسيارة (25 كم)'), route: t('Direct road via Kousba or highway', 'طريق مباشر عبر القوصبة أو الأوتوستراد'), link: 'https://www.google.com/maps/dir/Tripoli,+Lebanon/Zgharta,+Lebanon/' },
-            { from: t('Ehden from Zgharta', 'من زغرتا إلى إهدن'), time: t('~20 min drive (15 km)', '~20 دقيقة بالسيارة (15 كم)'), route: t('Mountain road, scenic views', 'طريق جبلي، مناظر خلابة'), link: 'https://www.google.com/maps/dir/Zgharta,+Lebanon/Ehden,+Lebanon/' }
+            { from: t('From Beirut', 'من بيروت'), time: t('~2h drive (120 km)', '~ساعتان بالسيارة (120 كم)'), link: 'https://www.google.com/maps/dir/Beirut,+Lebanon/Zgharta,+Lebanon/' },
+            { from: t('From Tripoli', 'من طرابلس'), time: t('~30 min drive (25 km)', '~30 دقيقة بالسيارة (25 كم)'), link: 'https://www.google.com/maps/dir/Tripoli,+Lebanon/Zgharta,+Lebanon/' },
+            { from: t('Ehden from Zgharta', 'من زغرتا إلى إهدن'), time: t('~20 min drive (15 km)', '~20 دقيقة بالسيارة (15 كم)'), link: 'https://www.google.com/maps/dir/Zgharta,+Lebanon/Ehden,+Lebanon/' }
           ].map((r, i, arr) => <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" style={{ padding: '14px 0', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, borderBottom: i < arr.length - 1 ? '1px solid #e7e5e4' : 'none', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Navigation style={{ width: 16, height: 16, color: '#10b981' }} />
@@ -323,8 +326,8 @@ export default function ZghartaTourismApp() {
       { id: 'shop', l: t('Shops', 'متاجر') },
     ];
 
-    return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
+    return <div style={screenContainer}>
+      <div style={stickyHeader}>
         <div style={{ padding: '20px 16px 12px' }}>
           <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left', marginBottom: 12 }}>{t('Explore', 'استكشف')}</h1>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -401,10 +404,9 @@ export default function ZghartaTourismApp() {
       .filter(e => evFilter === 'all' || e.category === evFilter)
       .filter(e => evTimeFilter === 'all' ? true : evTimeFilter === 'upcoming' ? new Date(e.date) >= now : new Date(e.date) < now), [events, evFilter, evTimeFilter]);
     const upcomingCount = React.useMemo(() => events.filter(e => new Date(e.date) >= now).length, [events]);
-    const calUrl = (e) => e.date ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(isRTL ? e.nameAr || e.name : e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent((isRTL ? (e.descriptionAr || e.description) : e.description) || '')}&location=${encodeURIComponent((isRTL ? (e.locationAr || e.location) : e.location) || '')}` : '#';
 
-    return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
+    return <div style={screenContainer}>
+      <div style={stickyHeader}>
         <div style={{ padding: '20px 16px 12px' }}><h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Events', 'فعاليات')}</h1></div>
         {/* Time toggle */}
         <div style={{ padding: '0 16px 10px' }}><div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 9999, padding: 3 }}>
@@ -444,7 +446,7 @@ export default function ZghartaTourismApp() {
   const EventModal = ({ event: e, onClose }) => {
     const s = eventCatStyles[e.category] || { bg: '#dbeafe', color: '#2563eb' };
     const calUrl = e.date ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.name)}&dates=${e.date.replace(/-/g,'')}/${e.date.replace(/-/g,'')}&details=${encodeURIComponent(e.description || '')}&location=${encodeURIComponent(e.location || '')}` : '#';
-    return <div style={{ position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' }}>
+    return <div style={modalContainer}>
       {/* Hero */}
       <div style={{ position: 'relative', height: 260, background: `linear-gradient(135deg, ${s.bg} 0%, white 100%)` }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -579,7 +581,6 @@ export default function ZghartaTourismApp() {
     el.appendChild(label);
     return el;
   };
-
 
   useEffect(() => {
     if (!GOOGLE_MAPS_KEY) return;
@@ -841,7 +842,7 @@ export default function ZghartaTourismApp() {
         <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
         <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', textAlign: isRTL ? 'right' : 'left' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
         <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+          <button onClick={() => setShowVillageDrop(v => !v)} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
             <MapPin style={{ width: 10, height: 10 }} />
             {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
             <ChevronDown style={{ width: 10, height: 10 }} />
@@ -938,7 +939,6 @@ export default function ZghartaTourismApp() {
     <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
   </div>;
 
-
   // FavsScreen state lifted to parent to prevent remount flicker
   const allSaved = React.useMemo(() => {
     const fP = places.filter(p => favs.places.includes(p.id));
@@ -964,8 +964,8 @@ export default function ZghartaTourismApp() {
 
   const viewAllOnMap = () => { setMapVillageFilter([]); setTab('map'); };
 
-  const FavsScreen = () => <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
+  const FavsScreen = () => <div style={screenContainer}>
+      <div style={stickyHeader}>
         <div style={{ padding: '20px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Saved', 'المحفوظات')}</h1>
@@ -1012,10 +1012,10 @@ export default function ZghartaTourismApp() {
   const PlaceModal = ({ place: p, onClose }) => {
     const nearby = getNearby(p.coordinates, p.id);
     const CatI = catIcons[p.category] || MapPin;
-    return <div style={{ position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' }}>
+    return <div style={modalContainer}>
       <div style={{ position: 'relative', height: 288 }}>
         <PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: '100%', height: '100%' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+        <div style={heroGradient} />
         <button onClick={onClose} style={modalBackBtn}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, [isRTL ? 'left' : 'right']: 16, display: 'flex', gap: 8 }}>
           <button onClick={() => shareLoc(p.name, p.village, p.coordinates)} style={{ ...circleBtn, background: 'rgba(255,255,255,0.9)' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
@@ -1038,7 +1038,7 @@ export default function ZghartaTourismApp() {
         {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: p.coordinates?.lat ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 28 }}>
           {p.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.coordinates.lat},${p.coordinates.lng}`, '_blank')} style={primaryBtn}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
-          {p.coordinates?.lat && <button onClick={() => showOnMap(p.coordinates)} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('Show on Map', 'على الخريطة')}</button>}
+          {p.coordinates?.lat && <button onClick={() => showOnMap()} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('Show on Map', 'على الخريطة')}</button>}
         </div>
         {/* Nearby section */}
         {nearby.length > 0 && <div>
@@ -1060,10 +1060,10 @@ export default function ZghartaTourismApp() {
   const BizModal = ({ business: b, onClose }) => {
     const nearby = getNearby(b.coordinates, b.id);
     const CatI = catIcons[b.category] || MapPin;
-    return <div style={{ position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' }}>
+    return <div style={modalContainer}>
       <div style={{ position: 'relative', height: 288 }}>
         <PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: '100%', height: '100%' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+        <div style={heroGradient} />
         <button onClick={onClose} style={modalBackBtn}><ArrowLeft style={{ width: 20, height: 20, color: '#1f2937' }} /></button>
         <div style={{ position: 'absolute', top: 16, [isRTL ? 'left' : 'right']: 16, display: 'flex', gap: 8 }}>
           <button onClick={() => shareLoc(b.name, b.village, b.coordinates)} style={{ ...circleBtn, background: 'rgba(255,255,255,0.9)' }}><Share2 style={{ width: 18, height: 18, color: '#1f2937' }} /></button>
@@ -1102,7 +1102,7 @@ export default function ZghartaTourismApp() {
         {/* Action buttons - row 2: Directions & Show on Map */}
         <div style={{ display: 'grid', gridTemplateColumns: b.coordinates?.lat ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
           {b.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${b.coordinates.lat},${b.coordinates.lng}`, '_blank')} style={secondaryBtn}><Navigation style={{ width: 18, height: 18 }} />{t('Directions', 'الاتجاهات')}</button>}
-          {b.coordinates?.lat && <button onClick={() => showOnMap(b.coordinates)} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('On Map', 'الخريطة')}</button>}
+          {b.coordinates?.lat && <button onClick={() => showOnMap()} style={secondaryBtn}><Map style={{ width: 18, height: 18 }} />{t('On Map', 'الخريطة')}</button>}
         </div>
         {/* Google Maps link for reviews */}
         {b.coordinates?.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + ' ' + b.village + ' Lebanon')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', color: '#6b7280', fontSize: 14, textDecoration: 'none', marginBottom: 24 }}>
