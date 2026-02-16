@@ -674,18 +674,21 @@ export default function ZghartaTourismApp() {
       mapInstanceRef.current.addListener('idle', () => {
         updateCards();
         const c = mapInstanceRef.current.getCenter();
-        if (c) setOutsideBounds(c.lat() < 34.24 || c.lat() > 34.42 || c.lng() < 35.82 || c.lng() > 36.00);
+        if (c) setOutsideBounds(c.lat() < 34.275 || c.lat() > 34.420 || c.lng() < 35.830 || c.lng() > 36.005);
       });
       // Zgharta caza boundary polygon
       if (!boundaryRef.current) {
         boundaryRef.current = new window.google.maps.Polygon({
           paths: [
-            {lat: 34.42, lng: 35.83}, {lat: 34.43, lng: 35.88}, {lat: 34.42, lng: 35.93},
-            {lat: 34.41, lng: 35.97}, {lat: 34.39, lng: 35.99}, {lat: 34.36, lng: 36.00},
-            {lat: 34.33, lng: 35.99}, {lat: 34.30, lng: 35.97}, {lat: 34.28, lng: 35.94},
-            {lat: 34.27, lng: 35.90}, {lat: 34.26, lng: 35.86}, {lat: 34.27, lng: 35.83},
-            {lat: 34.29, lng: 35.82}, {lat: 34.32, lng: 35.82}, {lat: 34.35, lng: 35.82},
-            {lat: 34.38, lng: 35.83}, {lat: 34.40, lng: 35.83}, {lat: 34.42, lng: 35.83},
+            {lat: 34.413, lng: 35.840}, {lat: 34.420, lng: 35.860}, {lat: 34.418, lng: 35.890},
+            {lat: 34.415, lng: 35.920}, {lat: 34.410, lng: 35.945}, {lat: 34.408, lng: 35.960},
+            {lat: 34.400, lng: 35.975}, {lat: 34.390, lng: 35.985}, {lat: 34.370, lng: 35.995},
+            {lat: 34.350, lng: 36.000}, {lat: 34.330, lng: 35.995}, {lat: 34.310, lng: 35.980},
+            {lat: 34.300, lng: 35.965}, {lat: 34.295, lng: 35.945}, {lat: 34.290, lng: 35.920},
+            {lat: 34.285, lng: 35.895}, {lat: 34.280, lng: 35.870}, {lat: 34.285, lng: 35.850},
+            {lat: 34.300, lng: 35.840}, {lat: 34.320, lng: 35.835}, {lat: 34.345, lng: 35.838},
+            {lat: 34.365, lng: 35.835}, {lat: 34.385, lng: 35.835}, {lat: 34.400, lng: 35.838},
+            {lat: 34.413, lng: 35.840},
           ],
           strokeColor: '#10b981', strokeOpacity: 0.5, strokeWeight: 2.5,
           fillColor: '#10b981', fillOpacity: 0.03,
@@ -799,7 +802,7 @@ export default function ZghartaTourismApp() {
       geolocDone.current = true;
       navigator.geolocation.getCurrentPosition((pos) => {
         const { latitude, longitude } = pos.coords;
-        if (latitude >= 34.24 && latitude <= 34.42 && longitude >= 35.82 && longitude <= 36.00) {
+        if (latitude >= 34.275 && latitude <= 34.420 && longitude >= 35.830 && longitude <= 36.005) {
           mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
           mapInstanceRef.current.setZoom(15);
         }
