@@ -609,11 +609,15 @@ export default function ZghartaTourismApp() {
         }
       };
 
+      // Save current view before clearing markers
+      const savedZoom = mapInstanceRef.current.getZoom();
+      const savedCenter = mapInstanceRef.current.getCenter();
+
       // Clear old markers
       markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
       markersRef.current = [];
 
-      const zoom = mapInstanceRef.current.getZoom();
+      const zoom = savedZoom;
 
       // Custom overlay class for HTML markers
       const getZoomTier = (z) => z >= 17 ? 2 : z >= 14 ? 1 : 0;
@@ -683,13 +687,17 @@ export default function ZghartaTourismApp() {
       });
 
       // Fit bounds only when filters actually change (not on favs change)
-      const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify({ mapFilter, villageFilter });
+      const filtersChanged = JSON.stringify(prevFiltersRef.current.mapFilter) !== JSON.stringify(mapFilter) || JSON.stringify(prevFiltersRef.current.villageFilter) !== JSON.stringify(villageFilter);
       prevFiltersRef.current = { mapFilter: [...mapFilter], villageFilter: [...villageFilter] };
       if (filtersChanged && filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
         const bounds = new window.google.maps.LatLngBounds();
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
+      } else if (!filtersChanged) {
+        // Restore view when only favs changed (no filter change)
+        mapInstanceRef.current.setCenter(savedCenter);
+        if (mapInstanceRef.current.getZoom() !== savedZoom) mapInstanceRef.current.setZoom(savedZoom);
       }
 
       // Update visible cards for carousel
