@@ -449,6 +449,7 @@ export default function ZghartaTourismApp() {
     const [mapFilter, setMapFilter] = useState([]);
     const [geoActive, setGeoActive] = useState(false);
     const geoMarkerRef = React.useRef(null);
+    const [cardsVisible, setCardsVisible] = useState(true);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
     const [showVillageDrop, setShowVillageDrop] = useState(false);
@@ -620,7 +621,7 @@ export default function ZghartaTourismApp() {
         const overlay = new HtmlMarker(
           { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
           elements,
-          () => { setSelectedMarker(loc); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
+          () => { setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
         );
         overlay.setMap(mapInstanceRef.current);
 
@@ -760,18 +761,34 @@ export default function ZghartaTourismApp() {
 
       {/* Locate me button */}
       <button onClick={handleLocateMe} style={{
-        position: 'absolute', bottom: 240, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 240 : 56, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'bottom 0.3s ease',
       }}>
         <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
       </button>
 
+      {/* Card toggle button */}
+      {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
+        position: 'absolute', bottom: cardsVisible ? 240 : 56, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
+        background: 'rgba(255,255,255,0.5)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'bottom 0.3s ease',
+      }}>
+        {cardsVisible
+          ? <ChevronDown style={{ width: 20, height: 20, color: '#6b7280' }} />
+          : <ChevronRight style={{ width: 20, height: 20, color: '#6b7280', transform: 'rotate(-90deg)' }} />}
+      </button>}
+
       {/* Card carousel */}
-      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 68px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
         {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
