@@ -161,7 +161,7 @@ export default function ZghartaTourismApp() {
             </div>
             {/* Stats row — editorial divider style */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
-              {[{ n: totalCount, l: t('Places', 'أماكن') }, { n: churchCount, l: t('Churches', 'كنائس') }, { n: natureCount, l: t('Nature', 'طبيعة') }, { n: restCount + cafeCount, l: t('Dining', 'مطاعم') }].map((s, i, arr) => <React.Fragment key={i}>
+              {[{ n: totalCount, l: t('Places', 'أماكن') }, { n: churchCount, l: t('Religious', 'دينية') }, { n: natureCount, l: t('Nature', 'طبيعة') }, { n: restCount + cafeCount, l: t('Dining', 'مطاعم') }].map((s, i, arr) => <React.Fragment key={i}>
                 <div style={{ textAlign: 'center', padding: '0 14px' }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{s.n}</div>
                   <div style={{ fontSize: 11, color: '#a7f3d0', fontWeight: 400, letterSpacing: 0.3, marginTop: 2 }}>{s.l}</div>
@@ -198,7 +198,7 @@ export default function ZghartaTourismApp() {
             { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', gradient: 'linear-gradient(135deg, #f5f5f4, #e7e5e4)', color: '#57534e' },
             { Icon: TreePine, label: t('Nature', 'طبيعة'), filter: 'nature', gradient: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#15803d' },
             { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', gradient: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', color: '#1d4ed8' },
-            { Icon: StickCross, label: t('Churches', 'كنائس'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' }
+            { Icon: StickCross, label: t('Religious', 'دينية'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' }
           ].map((c, i) => <button key={i} onClick={() => { setCatFilter([c.filter]); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <c.Icon style={{ width: 24, height: 24, color: c.color }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: c.color }}>{c.label}</span>
@@ -335,7 +335,7 @@ export default function ZghartaTourismApp() {
       { id: 'heritage', icon: Landmark, l: t('Heritage', 'تراث'), color: '#8d8680' },
       { id: 'nature', icon: TreePine, l: t('Nature', 'طبيعة'), color: '#5aab6e' },
       { id: 'hotel', icon: BedDouble, l: t('Hotels', 'فنادق'), color: '#5b8fd9' },
-      { id: 'religious', icon: StickCross, l: t('Churches', 'كنائس'), color: '#d4a054' },
+      { id: 'religious', icon: StickCross, l: t('Religious', 'دينية'), color: '#d4a054' },
     ];
 
     const hasActiveFilters = catFilter.length > 0 || mapVillageFilter.length > 0 || minRating > 0;
@@ -410,7 +410,7 @@ export default function ZghartaTourismApp() {
                 <Heart style={{ width: 16, height: 16, color: isFav(i.id, i.type === 'place' ? 'place' : 'business') ? '#ef4444' : '#d1d5db', fill: isFav(i.id, i.type === 'place' ? 'place' : 'business') ? '#ef4444' : 'none' }} />
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: catColors[i.category], background: catBgs[i.category], padding: '2px 8px', borderRadius: 6 }}>{i.category}</span>
+                {(() => { const CatI = catIcons[i.category] || MapPin; return <span style={{ fontSize: 11, fontWeight: 600, color: catColors[i.category], background: catBgs[i.category], padding: '2px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}><CatI style={{ width: 10, height: 10 }} />{i.category}</span>; })()}
               </div>
               <h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (i.nameAr || i.name) : i.name}</h3>
               <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -886,10 +886,10 @@ export default function ZghartaTourismApp() {
           { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
           { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
           { id: 'shop', icon: ShoppingBag, en: 'Shops', ar: 'متاجر', color: '#9b7ed8' },
-          { id: 'heritage', icon: Landmark, en: 'Landmarks', ar: 'معالم', color: '#8d8680' },
+          { id: 'heritage', icon: Landmark, en: 'Heritage', ar: 'تراث', color: '#8d8680' },
           { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
           { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
-          { id: 'religious', icon: StickCross, en: 'Churches', ar: 'كنائس', color: '#d4a054' },
+          { id: 'religious', icon: StickCross, en: 'Religious', ar: 'دينية', color: '#d4a054' },
         ].map(c => {
           const active = mapFilter.includes(c.id);
           const Icon = c.icon;
