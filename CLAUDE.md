@@ -13,7 +13,7 @@ A bilingual (English/Arabic) Progressive Web App promoting tourism in Zgharta Ca
 ## Tech Stack
 - **Frontend:** React 18.3.1 (Create React App via react-scripts 5.0.1)
 - **Backend/Database:** Supabase (@supabase/supabase-js ^2.45.0)
-- **Maps:** Google Maps JavaScript API (loaded dynamically with `libraries=marker`)
+- **Maps:** Google Maps JavaScript API (loaded dynamically, raster mode — no `libraries=marker`)
 - **Icons:** lucide-react ^0.263.1
 - **Styling:** 100% inline CSS — no Tailwind, no CSS Modules, no styled-components
 - **Fonts:** Inter (EN) + Tajawal (AR), loaded via Google Fonts in `index.html`
@@ -55,7 +55,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 |-----------|-------|-------------|
 | `StickCross` | ~5-9 | Custom SVG cross icon (thin stick cross for religious category, replaces lucide `Cross`) |
 | `PlaceImage` | ~11-20 | Reusable image with category-colored gradient fallback + lazy loading |
-| `ZghartaTourismApp` | ~22-950+ | Main app (default export). All state, helpers, and screens inside. |
+| `ZghartaTourismApp` | ~22-1100+ | Main app (default export). All state, helpers, and screens inside. |
 
 ### State (inside ZghartaTourismApp)
 - `tab` — Active tab: `'map'` | `'explore'` | `'events'` | `'guide'` | `'favorites'`
@@ -82,13 +82,15 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 - `showOnMap(coords)` — Navigate to map tab
 
 ### Screen Components (defined inside ZghartaTourismApp)
-| Screen | Tab ID | Description |
-|--------|--------|-------------|
-| `GuideScreen` | `'guide'` | Landing page: hero stats, featured place card, category quick-links, upcoming event banner, top-rated businesses, village carousel, getting-there directions |
-| `ExploreScreen` | `'explore'` | List view with global search, rating filter, places/businesses toggle, category pills |
-| `EventsScreen` | `'events'` | Events list with upcoming/past/all toggle and category filters |
-| `MapScreen` | `'map'` | Google Maps with 3-tier AdvancedMarkerElement markers, frosted glass search/filters, locate-me button, compass button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel |
-| `FavsScreen` | `'favorites'` | Saved items grouped by category, share-trip, view-on-map |
+| Screen | Tab ID | Rendering | Description |
+|--------|--------|-----------|-------------|
+| `GuideScreen` | `'guide'` | `<GuideScreen />` | Travel magazine landing: cinematic hero, full-image must-see card, horizontal category strip, calendar-style event, story-style top rated, circular village thumbnails, minimal transit directions |
+| `ExploreScreen` | `'explore'` | `<ExploreScreen />` | List view with global search, rating filter, places/businesses toggle, category pills |
+| `EventsScreen` | `'events'` | `<EventsScreen />` | Events list with upcoming/past/all toggle and category filters |
+| `MapScreen` | `'map'` | `{MapScreen()}` (function call) | Google Maps with 3-tier HtmlMarker overlays, frosted glass search/filters, locate-me button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel. **Always mounted** (hidden via `display:none` when not active tab) |
+| `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category, share-trip, view-on-map |
+
+**Rendering note:** MapScreen and FavsScreen are called as functions (not components) because their hooks are lifted to the parent scope. This prevents React from unmounting/remounting them on parent re-renders (which would destroy the Google Maps instance or cause image flicker). Other screens still render as `<Component />` with hooks inside.
 
 ### Modal Components (defined inside ZghartaTourismApp)
 | Modal | Trigger | Description |
@@ -164,6 +166,11 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ## Key Patterns & Conventions
 
+### Design Philosophy
+- **Map tab = "outdoor"** — transparent, immersive, frosted glass UI overlaying the map
+- **Other tabs = "indoor"** — warm, cozy, content-rich, like a beautiful travel magazine
+- GuideScreen uses warm cream gradient background (`#fafaf9` → `#f5f5f0`), cinematic full-image cards, editorial typography with varied weights (800 hero → 600 sections → 400 body), 32px section spacing, `letterSpacing: 0.5` on section titles
+
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
 - Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to icons, hex colors, and background colors
@@ -190,21 +197,25 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - `circleBtn` — base 40x40 circular button style
 - `primaryBtn` / `secondaryBtn` — action button styles used across modals
 
-### Performance
-- **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (MapScreen), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `groups` (FavsScreen)
+### Performance & State Architecture
+- **Lifted hooks pattern:** MapScreen and FavsScreen hooks (`useState`, `useEffect`, `useRef`, `useMemo`) are lifted to the parent `ZghartaTourismApp` scope. This prevents component identity changes from causing unmount/remount (which would destroy the Google Maps instance or trigger image reload flicker). The loading/error early returns are placed AFTER all hooks to comply with React's rules of hooks.
+- **`favsRef`** — Ref tracking latest `favs` state; used by the marker creation effect so `favs` is not in its dependency array. A separate lightweight effect updates marker visuals in-place when favs change (no marker destruction/recreation, no zoom disruption).
+- **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (map), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `favsGroups` (favs)
 - **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
-- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay
+- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions; `prevFiltersRef` for fitBounds guard
 
 ### Map Implementation
 - Google Maps loaded dynamically via script tag injection (no `mapId` — raster mode for local JSON styles)
 - **POI hiding:** Local `styles` array hides all Google default POIs (`poi`, `poi.business`) and transit stations; only custom markers visible
 - **3-tier marker system** using custom `HtmlMarker` class extending `google.maps.OverlayView`:
-  - **Zoom ≤13:** 10px colored dots with white border (`makeDotEl`)
+  - **Zoom ≤13:** 10px colored dots with white border; favorited markers show ♥ heart (`makeDotEl`)
   - **Zoom 14-16:** 28px white circle with 2D category SVG icon inside (`makeIconEl`)
   - **Zoom 17+:** Icon + truncated name label (max 20 chars) in category color with white text-shadow halo (`makeLabeledEl`)
-  - Content swapped via `updateContent(zoom)` on `zoom_changed` event
+  - Content swapped via `updateContent(zoom, animate)` on `zoom_changed` event
+  - **Staggered pop animation:** When zooming into a higher tier, markers animate in with `markerPop` keyframe and staggered delays (30ms per marker, max 500ms)
   - Click listener on wrapper div works at all zoom levels; sets `selectedMarkerRef` synchronously before `panTo`
-- **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — all defined inside MapScreen
+- **Favorited marker styling:** Muted inverted colors — category-colored background with white icon (vs normal: white background with colored icon). Favorites render at z-index 10 (above normal z-index 1). Marker visuals update in-place via lightweight effect (no destruction/recreation).
+- **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — defined at parent scope
 - **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
 - **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
 - **Category filter chips:** Horizontal scrollable row of pill-shaped chips (Restaurants, Hotels, Churches, Nature, Landmarks, Cafés) with icons, bilingual labels, multi-select, color-coded active states
@@ -212,7 +223,9 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
 - **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
-- **Body scroll lock:** useEffect locks body/html overflow when map tab is active; root wrapper gets conditional `overflow: 'hidden'`
+- **fitBounds guard:** Uses `prevFiltersRef` to only fitBounds when mapFilter/villageFilter actually change, not on favs changes
+- **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
+- **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - **Google attribution:** Repositioned above nav via CSS (`.gm-style > div:last-child { bottom: 56px }`)
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
