@@ -53,8 +53,9 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 ### Top-Level Components
 | Component | Lines | Description |
 |-----------|-------|-------------|
-| `PlaceImage` | ~10-19 | Reusable image with category-colored gradient fallback + lazy loading |
-| `ZghartaTourismApp` | ~21-950 | Main app (default export). All state, helpers, and screens inside. |
+| `StickCross` | ~5-9 | Custom SVG cross icon (thin stick cross for religious category, replaces lucide `Cross`) |
+| `PlaceImage` | ~11-20 | Reusable image with category-colored gradient fallback + lazy loading |
+| `ZghartaTourismApp` | ~22-950+ | Main app (default export). All state, helpers, and screens inside. |
 
 ### State (inside ZghartaTourismApp)
 - `tab` — Active tab: `'map'` | `'explore'` | `'events'` | `'guide'` | `'favorites'`
@@ -66,6 +67,8 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 - `mapVillageFilter` — Village filter shared between Guide and Map screens
 - `selectedMarker` — Currently highlighted marker on map (auto-scrolls carousel)
 - `visibleCards` — Top 8 places/businesses in current map viewport (carousel data)
+- `geoActive` — Whether locate-me button is active (MapScreen)
+- `mapHeading` — Current map heading in degrees for compass button (MapScreen)
 - `places`, `businesses`, `events` — Data arrays from Supabase
 - `loading`, `error` — Fetch state
 
@@ -84,7 +87,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | `GuideScreen` | `'guide'` | Landing page: hero stats, featured place card, category quick-links, upcoming event banner, top-rated businesses, village carousel, getting-there directions |
 | `ExploreScreen` | `'explore'` | List view with global search, rating filter, places/businesses toggle, category pills |
 | `EventsScreen` | `'events'` | Events list with upcoming/past/all toggle and category filters |
-| `MapScreen` | `'map'` | Google Maps with AdvancedMarkerElement + PinElement, zoom-based visibility, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel |
+| `MapScreen` | `'map'` | Google Maps with 3-tier AdvancedMarkerElement markers, frosted glass search/filters, locate-me button, compass button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel |
 | `FavsScreen` | `'favorites'` | Saved items grouped by category, share-trip, view-on-map |
 
 ### Modal Components (defined inside ZghartaTourismApp)
@@ -163,7 +166,8 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
-- Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to Lucide icons, hex colors, and background colors
+- Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to icons, hex colors, and background colors
+- **Religious icon:** Custom `StickCross` SVG component (thin stick cross) used everywhere instead of lucide `Cross`
 - Map marker colors in separate `markerColors` object
 - RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` on all screens and modals, conditional `textAlign`/`flexDirection`, and `[isRTL ? 'right' : 'left']` for absolute positioning (back buttons, badges, dropdowns, close buttons)
 
@@ -193,17 +197,24 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Map Implementation
 - Google Maps loaded dynamically via script tag injection with `mapId` for cloud styling
-- **AdvancedMarkerElement + PinElement** markers (not OverlayView or standard Markers)
-- **Zoom-based visibility:** markers hidden at zoom <12, small dots at 12-13, full pins at 14+
+- **3-tier marker system** using only `AdvancedMarkerElement` with custom DOM element content (no PinElement, no OverlayView):
+  - **Zoom ≤13:** 10px colored dots with white border (`makeDotEl`)
+  - **Zoom 14-15:** 28px white circle with 2D category SVG icon inside (`makeIconEl`)
+  - **Zoom 16+:** Icon + truncated name label in category color with white text-shadow halo (`makeLabeledEl`)
+- **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — all defined inside MapScreen
+- **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
+- **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
 - **Category filter chips:** Horizontal scrollable row of pill-shaped chips (Restaurants, Hotels, Churches, Nature, Landmarks, Cafés) with icons, bilingual labels, multi-select, color-coded active states
 - **Swipeable card carousel:** Always-visible horizontal scroll-snap carousel of image-background cards at bottom of map. Cards show top 8 places/businesses visible in the map viewport (updated via `idle` listener with `getBounds().contains()`). Full-bleed images with dark gradient overlay, frosted heart buttons, white text. Tapping a marker auto-scrolls carousel to that card.
+- **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via AdvancedMarkerElement). `geoActive` state highlights button blue; `dragstart` listener deactivates it.
+- **Compass button:** Bottom-right (RTL: bottom-left) frosted glass circle. Hidden when heading=0, fades in when map is rotated (two-finger gesture). Compass icon rotates to point north. Tap resets heading to 0. Listens to `heading_changed` event.
+- **Two-finger rotate:** Enabled via `heading: 0`, `rotateControl: false`, `gestureHandling: 'greedy'`
+- **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
 - **Body scroll lock:** useEffect locks body/html overflow when map tab is active; root wrapper gets conditional `overflow: 'hidden'`
-- **Gesture handling:** `gestureHandling: 'greedy'` for mobile map interaction
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - Carousel positioned with `bottom: 68px` above the nav bar
-- Zoom control positioned at `RIGHT_TOP` to avoid overlap with carousel
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
-- **Geolocation:** On mount, requests user position; only pans to it if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
+- **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
 - **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
 - **Soft color theme:** muted marker colors (`markerColors`), desaturated map styles (lighter water, landscape, road labels)
 - **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
@@ -211,7 +222,8 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 ### Navigation
 - Tab-based via `tab` state — no React Router
 - Bottom nav is `position: fixed` with 5 tabs, compact sizing (icons 20px, labels 10px)
-- **Conditional nav styling:** Semi-transparent with blur on map tab (`rgba(255,255,255,0.55)`, `blur(20px)`), solid white on other tabs
+- **Active tab indicator:** Green pill background (`rgba(16,185,129,0.12)`) behind active icon (22px), with smooth transitions for background/size/weight. No top pill bar.
+- **Conditional nav styling:** Semi-transparent with blur on map tab (`rgba(255,255,255,0.12)`, `blur(4px)`), solid white on other tabs
 - Modals are full-screen overlays (`position: fixed, inset: 0, zIndex: 50`)
 - Max width: 448px centered (mobile-first design)
 
