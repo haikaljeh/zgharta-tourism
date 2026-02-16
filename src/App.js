@@ -436,462 +436,464 @@ export default function ZghartaTourismApp() {
     </div>;
   };
 
-  const MapScreen = () => {
-    const mapRef = React.useRef(null);
-    const mapInstanceRef = React.useRef(null);
-    const markersRef = React.useRef([]);
-    const [selectedMarker, setSelectedMarker] = useState(null);
-    const selectedMarkerRef = React.useRef(null);
-    const [visibleCards, setVisibleCards] = useState([]);
-    const carouselRef = React.useRef(null);
-    const visibleCardsRef = React.useRef([]);
-    const [mapLoaded, setMapLoaded] = useState(false);
-    const [mapError, setMapError] = useState(false);
-    const [mapFilter, setMapFilter] = useState([]);
-    const [geoActive, setGeoActive] = useState(false);
-    const geoMarkerRef = React.useRef(null);
-    const [cardsVisible, setCardsVisible] = useState(true);
-    const villageFilter = mapVillageFilter;
-    const setVillageFilter = setMapVillageFilter;
-    const [showVillageDrop, setShowVillageDrop] = useState(false);
-    const geolocDone = React.useRef(false);
-    const prevZoomTierRef = React.useRef(null);
-    const prevFiltersRef = React.useRef({ mapFilter: [], villageFilter: [] });
-    const favsRef = React.useRef(favs);
+  // MapScreen state — lifted to parent so it survives MapScreen remounts
+  const mapRef = React.useRef(null);
+  const mapInstanceRef = React.useRef(null);
+  const markersRef = React.useRef([]);
+  const [selectedMarker, setSelectedMarker] = useState(null);
+  const selectedMarkerRef = React.useRef(null);
+  const [visibleCards, setVisibleCards] = useState([]);
+  const carouselRef = React.useRef(null);
+  const visibleCardsRef = React.useRef([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState(false);
+  const [mapFilter, setMapFilter] = useState([]);
+  const [geoActive, setGeoActive] = useState(false);
+  const geoMarkerRef = React.useRef(null);
+  const [cardsVisible, setCardsVisible] = useState(true);
+  const [showVillageDrop, setShowVillageDrop] = useState(false);
+  const geolocDone = React.useRef(false);
+  const prevZoomTierRef = React.useRef(null);
+  const prevFiltersRef = React.useRef({ mapFilter: [], villageFilter: [] });
+  const favsRef = React.useRef(favs);
 
-    const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
-    const filteredLocations = React.useMemo(() => allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village))), [allLocations, mapFilter, villageFilter]);
-    const villages = React.useMemo(() => [...new Set(allLocations.map(l => l.village))].sort(), [allLocations]);
-    const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
-    const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  const villageFilter = mapVillageFilter;
+  const setVillageFilter = setMapVillageFilter;
 
-    const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
+  const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
+  const filteredLocations = React.useMemo(() => allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village))), [allLocations, mapFilter, villageFilter]);
+  const villages = React.useMemo(() => [...new Set(allLocations.map(l => l.village))].sort(), [allLocations]);
+  const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
-    const catIconPaths = {
-      religious: { vb: '0 0 16 16', d: '<line x1="8" y1="1" x2="8" y2="15"/><line x1="3" y1="5" x2="13" y2="5"/>' },
-      nature: { vb: '0 0 24 24', d: '<path d="M17 14l3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14l-3-3.3a1 1 0 0 1 .7-1.7h4.6L7 6.3a1 1 0 0 1 .7-1.7h8.6a1 1 0 0 1 .7 1.7L15 9h4.6a1 1 0 0 1 .7 1.7L17 14z"/><line x1="12" y1="22" x2="12" y2="18"/>' },
-      heritage: { vb: '0 0 24 24', d: '<polyline points="4,11 12,4 20,11"/><line x1="4" y1="20" x2="4" y2="11"/><line x1="20" y1="20" x2="20" y2="11"/><line x1="9" y1="20" x2="9" y2="14"/><line x1="15" y1="20" x2="15" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>' },
-      restaurant: { vb: '0 0 24 24', d: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>' },
-      hotel: { vb: '0 0 24 24', d: '<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><line x1="12" y1="4" x2="12" y2="10"/><line x1="2" y1="18" x2="22" y2="18"/>' },
-      cafe: { vb: '0 0 24 24', d: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/>' },
-      shop: { vb: '0 0 24 24', d: '<path d="M6 2L3 7v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V7l-3-5z"/><line x1="3" y1="9" x2="3" y2="22"/><line x1="21" y1="9" x2="21" y2="22"/><line x1="3" y1="22" x2="21" y2="22"/><path d="M9 22V12h6v10"/>' },
+  const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
+
+  const catIconPaths = {
+    religious: { vb: '0 0 16 16', d: '<line x1="8" y1="1" x2="8" y2="15"/><line x1="3" y1="5" x2="13" y2="5"/>' },
+    nature: { vb: '0 0 24 24', d: '<path d="M17 14l3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14l-3-3.3a1 1 0 0 1 .7-1.7h4.6L7 6.3a1 1 0 0 1 .7-1.7h8.6a1 1 0 0 1 .7 1.7L15 9h4.6a1 1 0 0 1 .7 1.7L17 14z"/><line x1="12" y1="22" x2="12" y2="18"/>' },
+    heritage: { vb: '0 0 24 24', d: '<polyline points="4,11 12,4 20,11"/><line x1="4" y1="20" x2="4" y2="11"/><line x1="20" y1="20" x2="20" y2="11"/><line x1="9" y1="20" x2="9" y2="14"/><line x1="15" y1="20" x2="15" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>' },
+    restaurant: { vb: '0 0 24 24', d: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>' },
+    hotel: { vb: '0 0 24 24', d: '<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><line x1="12" y1="4" x2="12" y2="10"/><line x1="2" y1="18" x2="22" y2="18"/>' },
+    cafe: { vb: '0 0 24 24', d: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/>' },
+    shop: { vb: '0 0 24 24', d: '<path d="M6 2L3 7v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V7l-3-5z"/><line x1="3" y1="9" x2="3" y2="22"/><line x1="21" y1="9" x2="21" y2="22"/><line x1="3" y1="22" x2="21" y2="22"/><path d="M9 22V12h6v10"/>' },
+  };
+
+  const makeCatSVG = (cat, color, size) => {
+    const icon = catIconPaths[cat];
+    if (!icon) return '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
+  };
+
+  const mutedCatColors = { religious: 'rgba(180,83,9,0.65)', nature: 'rgba(21,128,61,0.65)', heritage: 'rgba(87,83,78,0.65)', restaurant: 'rgba(220,38,38,0.65)', hotel: 'rgba(37,99,235,0.65)', cafe: 'rgba(234,88,12,0.65)', shop: 'rgba(124,58,237,0.65)' };
+
+  const makeDotEl = (color, cat, fav) => {
+    const el = document.createElement('div');
+    if (fav) {
+      const muted = mutedCatColors[cat] || color;
+      el.style.cssText = `width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:${muted};font-size:14px;line-height:1;`;
+      el.textContent = '♥';
+    } else {
+      el.style.cssText = `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
+    }
+    return el;
+  };
+
+  const makeIconEl = (cat, color, fav) => {
+    const el = document.createElement('div');
+    if (fav) {
+      const muted = mutedCatColors[cat] || color;
+      el.style.cssText = `width:28px;height:28px;background:${muted};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);`;
+      el.innerHTML = makeCatSVG(cat, 'rgba(255,255,255,0.9)', 16);
+    } else {
+      el.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
+      el.innerHTML = makeCatSVG(cat, color, 16);
+    }
+    return el;
+  };
+
+  const makeLabeledEl = (cat, color, name, fav) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;align-items:center;gap:4px;';
+    const iconWrap = document.createElement('div');
+    if (fav) {
+      const muted = mutedCatColors[cat] || color;
+      iconWrap.style.cssText = `width:28px;height:28px;background:${muted};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;`;
+      iconWrap.innerHTML = makeCatSVG(cat, 'rgba(255,255,255,0.9)', 16);
+    } else {
+      iconWrap.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;';
+      iconWrap.innerHTML = makeCatSVG(cat, color, 16);
+    }
+    const label = document.createElement('div');
+    const truncated = name.length > 20 ? name.slice(0, 20) + '…' : name;
+    label.style.cssText = `font-size:12px;font-weight:600;color:${color};white-space:nowrap;text-shadow:0 0 3px white,-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;`;
+    if (fav) {
+      label.innerHTML = `<span style="color:${color}">♥</span> ${truncated}`;
+    } else {
+      label.textContent = truncated;
+    }
+    el.appendChild(iconWrap);
+    el.appendChild(label);
+    return el;
+  };
+
+
+  useEffect(() => {
+    if (!GOOGLE_MAPS_KEY) return;
+    if (window.google?.maps) { setMapLoaded(true); return; }
+    let checkTimer;
+    const existing = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existing) { const check = () => { if (window.google?.maps) setMapLoaded(true); else checkTimer = setTimeout(check, 200); }; check(); return () => clearTimeout(checkTimer); }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}`;
+    script.async = true; script.defer = true;
+    script.onload = () => setMapLoaded(true);
+    script.onerror = () => setMapError(true);
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'map') return;
+    const origBody = document.body.style.overflow;
+    const origHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = origBody; document.documentElement.style.overflow = origHtml; };
+  }, [tab]);
+
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !window.google?.maps) return;
+    if (!mapInstanceRef.current) {
+      mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+        center: { lat: 34.3955, lng: 35.8945 },
+        zoom: 15,
+        gestureHandling: 'greedy',
+        disableDefaultUI: true,
+        zoomControl: false,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+          { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit.station', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+      mapInstanceRef.current.addListener('click', () => { selectedMarkerRef.current = null; setSelectedMarker(null); });
+      mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
+      mapInstanceRef.current.addListener('zoom_changed', () => {
+        const zoom = mapInstanceRef.current.getZoom();
+        const newTier = getZoomTier(zoom);
+        const oldTier = prevZoomTierRef.current;
+        const shouldAnimate = oldTier !== null && newTier > oldTier;
+        prevZoomTierRef.current = newTier;
+        markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom, shouldAnimate));
+      });
+      mapInstanceRef.current.addListener('idle', () => updateCards());
+    }
+
+    const updateCards = () => {
+      const bounds = mapInstanceRef.current?.getBounds();
+      if (!bounds) return;
+      const visible = filteredLocations.filter(l => bounds.contains({ lat: l.coordinates.lat, lng: l.coordinates.lng }));
+      visible.sort((a, b) => {
+        if (a.featured && !b.featured) return -1;
+        if (!a.featured && b.featured) return 1;
+        return (b.rating || 0) - (a.rating || 0);
+      });
+      let cards = visible.slice(0, 8);
+      // Ensure selected marker is always in the card list
+      if (selectedMarkerRef.current) {
+        const sel = selectedMarkerRef.current;
+        if (!cards.find(c => c.id === sel.id && c.type === sel.type)) {
+          cards = [sel, ...cards.slice(0, 7)];
+        }
+      }
+      // Only update if we have results — keep last cards when viewport is empty
+      if (cards.length > 0) {
+        setVisibleCards(cards);
+        visibleCardsRef.current = cards;
+      }
     };
 
-    const makeCatSVG = (cat, color, size) => {
-      const icon = catIconPaths[cat];
-      if (!icon) return '';
-      return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
-    };
+    // Clear old markers
+    markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
+    markersRef.current = [];
 
-    const mutedCatColors = { religious: 'rgba(180,83,9,0.65)', nature: 'rgba(21,128,61,0.65)', heritage: 'rgba(87,83,78,0.65)', restaurant: 'rgba(220,38,38,0.65)', hotel: 'rgba(37,99,235,0.65)', cafe: 'rgba(234,88,12,0.65)', shop: 'rgba(124,58,237,0.65)' };
+    const zoom = mapInstanceRef.current.getZoom();
 
-    const makeDotEl = (color, cat, fav) => {
-      const el = document.createElement('div');
-      if (fav) {
-        const muted = mutedCatColors[cat] || color;
-        el.style.cssText = `width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:${muted};font-size:14px;line-height:1;`;
-        el.textContent = '♥';
-      } else {
-        el.style.cssText = `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
+    // Custom overlay class for HTML markers
+    const getZoomTier = (z) => z >= 17 ? 2 : z >= 14 ? 1 : 0;
+
+    class HtmlMarker extends window.google.maps.OverlayView {
+      constructor(position, elements, onClick, isFav, index) {
+        super();
+        this.position = position;
+        this.elements = elements;
+        this.onClick = onClick;
+        this.isFav = isFav;
+        this.index = index;
+        this.div = null;
       }
-      return el;
-    };
-
-    const makeIconEl = (cat, color, fav) => {
-      const el = document.createElement('div');
-      if (fav) {
-        const muted = mutedCatColors[cat] || color;
-        el.style.cssText = `width:28px;height:28px;background:${muted};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);`;
-        el.innerHTML = makeCatSVG(cat, 'rgba(255,255,255,0.9)', 16);
-      } else {
-        el.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
-        el.innerHTML = makeCatSVG(cat, color, 16);
+      onAdd() {
+        this.div = document.createElement('div');
+        this.div.style.cssText = `position:absolute;cursor:pointer;z-index:${this.isFav ? 10 : 1};`;
+        const z = this.getMap()?.getZoom() || 15;
+        this.div.appendChild(z >= 17 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
+        this.div.addEventListener('click', (e) => { e.stopPropagation(); this.onClick(); });
+        this.getPanes().overlayMouseTarget.appendChild(this.div);
       }
-      return el;
-    };
-
-    const makeLabeledEl = (cat, color, name, fav) => {
-      const el = document.createElement('div');
-      el.style.cssText = 'display:flex;align-items:center;gap:4px;';
-      const iconWrap = document.createElement('div');
-      if (fav) {
-        const muted = mutedCatColors[cat] || color;
-        iconWrap.style.cssText = `width:28px;height:28px;background:${muted};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;`;
-        iconWrap.innerHTML = makeCatSVG(cat, 'rgba(255,255,255,0.9)', 16);
-      } else {
-        iconWrap.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;';
-        iconWrap.innerHTML = makeCatSVG(cat, color, 16);
+      draw() {
+        if (!this.div) return;
+        const proj = this.getProjection();
+        if (!proj) return;
+        const pos = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this.position.lat, this.position.lng));
+        if (pos) { this.div.style.left = pos.x + 'px'; this.div.style.top = pos.y + 'px'; this.div.style.transform = 'translate(-50%, -50%)'; }
       }
-      const label = document.createElement('div');
-      const truncated = name.length > 20 ? name.slice(0, 20) + '…' : name;
-      label.style.cssText = `font-size:12px;font-weight:600;color:${color};white-space:nowrap;text-shadow:0 0 3px white,-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;`;
-      if (fav) {
-        label.innerHTML = `<span style="color:${color}">♥</span> ${truncated}`;
-      } else {
-        label.textContent = truncated;
-      }
-      el.appendChild(iconWrap);
-      el.appendChild(label);
-      return el;
-    };
-
-
-    useEffect(() => {
-      if (!GOOGLE_MAPS_KEY) return;
-      if (window.google?.maps) { setMapLoaded(true); return; }
-      let checkTimer;
-      const existing = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existing) { const check = () => { if (window.google?.maps) setMapLoaded(true); else checkTimer = setTimeout(check, 200); }; check(); return () => clearTimeout(checkTimer); }
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}`;
-      script.async = true; script.defer = true;
-      script.onload = () => setMapLoaded(true);
-      script.onerror = () => setMapError(true);
-      document.head.appendChild(script);
-    }, []);
-
-    useEffect(() => {
-      const origBody = document.body.style.overflow;
-      const origHtml = document.documentElement.style.overflow;
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = origBody; document.documentElement.style.overflow = origHtml; };
-    }, []);
-
-    useEffect(() => {
-      if (!mapLoaded || !mapRef.current || !window.google?.maps) return;
-      if (!mapInstanceRef.current) {
-        mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
-          center: { lat: 34.3955, lng: 35.8945 },
-          zoom: 15,
-          gestureHandling: 'greedy',
-          disableDefaultUI: true,
-          zoomControl: false,
-          styles: [
-            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-            { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-            { featureType: 'transit.station', stylers: [{ visibility: 'off' }] },
-          ],
-        });
-        mapInstanceRef.current.addListener('click', () => { selectedMarkerRef.current = null; setSelectedMarker(null); });
-        mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
-        mapInstanceRef.current.addListener('zoom_changed', () => {
-          const zoom = mapInstanceRef.current.getZoom();
-          const newTier = getZoomTier(zoom);
-          const oldTier = prevZoomTierRef.current;
-          const shouldAnimate = oldTier !== null && newTier > oldTier;
-          prevZoomTierRef.current = newTier;
-          markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom, shouldAnimate));
-        });
-        mapInstanceRef.current.addListener('idle', () => updateCards());
-      }
-
-      const updateCards = () => {
-        const bounds = mapInstanceRef.current?.getBounds();
-        if (!bounds) return;
-        const visible = filteredLocations.filter(l => bounds.contains({ lat: l.coordinates.lat, lng: l.coordinates.lng }));
-        visible.sort((a, b) => {
-          if (a.featured && !b.featured) return -1;
-          if (!a.featured && b.featured) return 1;
-          return (b.rating || 0) - (a.rating || 0);
-        });
-        let cards = visible.slice(0, 8);
-        // Ensure selected marker is always in the card list
-        if (selectedMarkerRef.current) {
-          const sel = selectedMarkerRef.current;
-          if (!cards.find(c => c.id === sel.id && c.type === sel.type)) {
-            cards = [sel, ...cards.slice(0, 7)];
+      onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
+      updateContent(zoom, animate) {
+        if (!this.div) return;
+        if (zoom < 12) { this.div.style.display = 'none'; return; }
+        this.div.style.display = '';
+        const el = zoom >= 17 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
+        if (this.div.firstChild !== el) {
+          this.div.innerHTML = '';
+          if (animate && zoom >= 14) {
+            el.style.animation = `markerPop 0.3s ease-out ${Math.min(this.index * 30, 500)}ms both`;
           }
+          this.div.appendChild(el);
         }
-        // Only update if we have results — keep last cards when viewport is empty
-        if (cards.length > 0) {
-          setVisibleCards(cards);
-          visibleCardsRef.current = cards;
-        }
+      }
+    }
+
+    filteredLocations.forEach((loc, i) => {
+      const color = markerColors[loc.category] || '#10b981';
+      const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
+      const locFav = loc.type === 'place' ? favsRef.current.places.includes(loc.id) : favsRef.current.businesses.includes(loc.id);
+
+      const elements = {
+        elDot: makeDotEl(color, loc.category, locFav),
+        elIcon: makeIconEl(loc.category, color, locFav),
+        elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
       };
 
-      // Clear old markers
+      const overlay = new HtmlMarker(
+        { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
+        elements,
+        () => { selectedMarkerRef.current = loc; setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); },
+        locFav,
+        i
+      );
+      overlay.setMap(mapInstanceRef.current);
+
+      markersRef.current.push({ overlay, elements, loc });
+    });
+
+    // Fit bounds when filters change
+    const filtersChanged = JSON.stringify(prevFiltersRef.current.mapFilter) !== JSON.stringify(mapFilter) || JSON.stringify(prevFiltersRef.current.villageFilter) !== JSON.stringify(villageFilter);
+    prevFiltersRef.current = { mapFilter: [...mapFilter], villageFilter: [...villageFilter] };
+    if (filtersChanged && filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
+      const bounds = new window.google.maps.LatLngBounds();
+      filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
+      if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
+      else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
+    }
+
+    // Update visible cards for carousel
+    updateCards();
+
+    // Geolocate once: if user is in Zgharta area, pan to their location
+    if (!geolocDone.current && mapInstanceRef.current && navigator.geolocation) {
+      geolocDone.current = true;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (latitude >= 34.24 && latitude <= 34.42 && longitude >= 35.82 && longitude <= 36.00) {
+          mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
+          mapInstanceRef.current.setZoom(15);
+        }
+      }, () => {});
+    }
+    return () => {
       markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
       markersRef.current = [];
+      if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
+    };
+  }, [mapLoaded, filteredLocations]);
 
-      const zoom = mapInstanceRef.current.getZoom();
+  // Lightweight effect: update marker visuals when favs change (no marker recreation, no zoom change)
+  useEffect(() => {
+    favsRef.current = favs;
+    if (!mapInstanceRef.current || markersRef.current.length === 0) return;
+    const zoom = mapInstanceRef.current.getZoom();
+    markersRef.current.forEach(({ overlay, loc }) => {
+      const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
+      const color = markerColors[loc.category] || '#10b981';
+      const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
+      overlay.elements = {
+        elDot: makeDotEl(color, loc.category, locFav),
+        elIcon: makeIconEl(loc.category, color, locFav),
+        elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
+      };
+      overlay.isFav = locFav;
+      if (overlay.div) overlay.div.style.zIndex = locFav ? 10 : 1;
+      overlay.updateContent(zoom, false);
+    });
+  }, [favs]);
 
-      // Custom overlay class for HTML markers
-      const getZoomTier = (z) => z >= 17 ? 2 : z >= 14 ? 1 : 0;
+  useEffect(() => {
+    if (!selectedMarker || !carouselRef.current) return;
+    // Delay to let updateCards/render settle after panTo triggers idle
+    const timer = setTimeout(() => {
+      if (!carouselRef.current) return;
+      const idx = visibleCardsRef.current.findIndex(v => v.id === selectedMarker.id && v.type === selectedMarker.type);
+      if (idx >= 0 && carouselRef.current.children[idx]) {
+        carouselRef.current.children[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [selectedMarker, visibleCards]);
 
-      class HtmlMarker extends window.google.maps.OverlayView {
-        constructor(position, elements, onClick, isFav, index) {
-          super();
-          this.position = position;
-          this.elements = elements;
-          this.onClick = onClick;
-          this.isFav = isFav;
-          this.index = index;
-          this.div = null;
-        }
+  const handleLocateMe = () => {
+    if (!navigator.geolocation || !mapInstanceRef.current) return;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const { latitude, longitude } = pos.coords;
+      const position = { lat: latitude, lng: longitude };
+      mapInstanceRef.current.panTo(position);
+      mapInstanceRef.current.setZoom(16);
+      setGeoActive(true);
+      if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
+      // Blue dot overlay
+      const GeoOverlay = class extends window.google.maps.OverlayView {
         onAdd() {
           this.div = document.createElement('div');
-          this.div.style.cssText = `position:absolute;cursor:pointer;z-index:${this.isFav ? 10 : 1};`;
-          const z = this.getMap()?.getZoom() || 15;
-          this.div.appendChild(z >= 17 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
-          this.div.addEventListener('click', (e) => { e.stopPropagation(); this.onClick(); });
+          this.div.style.cssText = 'position:absolute;';
+          this.div.innerHTML = '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);animation:geoPulse 2s infinite"></div>';
           this.getPanes().overlayMouseTarget.appendChild(this.div);
         }
         draw() {
-          if (!this.div) return;
           const proj = this.getProjection();
-          if (!proj) return;
-          const pos = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this.position.lat, this.position.lng));
-          if (pos) { this.div.style.left = pos.x + 'px'; this.div.style.top = pos.y + 'px'; this.div.style.transform = 'translate(-50%, -50%)'; }
+          if (!proj || !this.div) return;
+          const p = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(position.lat, position.lng));
+          if (p) { this.div.style.left = (p.x - 11) + 'px'; this.div.style.top = (p.y - 11) + 'px'; }
         }
         onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
-        updateContent(zoom, animate) {
-          if (!this.div) return;
-          if (zoom < 12) { this.div.style.display = 'none'; return; }
-          this.div.style.display = '';
-          const el = zoom >= 17 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
-          if (this.div.firstChild !== el) {
-            this.div.innerHTML = '';
-            if (animate && zoom >= 14) {
-              el.style.animation = `markerPop 0.3s ease-out ${Math.min(this.index * 30, 500)}ms both`;
-            }
-            this.div.appendChild(el);
-          }
-        }
-      }
-
-      filteredLocations.forEach((loc, i) => {
-        const color = markerColors[loc.category] || '#10b981';
-        const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
-        const locFav = loc.type === 'place' ? favsRef.current.places.includes(loc.id) : favsRef.current.businesses.includes(loc.id);
-
-        const elements = {
-          elDot: makeDotEl(color, loc.category, locFav),
-          elIcon: makeIconEl(loc.category, color, locFav),
-          elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
-        };
-
-        const overlay = new HtmlMarker(
-          { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
-          elements,
-          () => { selectedMarkerRef.current = loc; setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); },
-          locFav,
-          i
-        );
-        overlay.setMap(mapInstanceRef.current);
-
-        markersRef.current.push({ overlay, elements, loc });
-      });
-
-      // Fit bounds when filters change
-      const filtersChanged = JSON.stringify(prevFiltersRef.current.mapFilter) !== JSON.stringify(mapFilter) || JSON.stringify(prevFiltersRef.current.villageFilter) !== JSON.stringify(villageFilter);
-      prevFiltersRef.current = { mapFilter: [...mapFilter], villageFilter: [...villageFilter] };
-      if (filtersChanged && filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
-        const bounds = new window.google.maps.LatLngBounds();
-        filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
-        if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
-        else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
-      }
-
-      // Update visible cards for carousel
-      updateCards();
-
-      // Geolocate once: if user is in Zgharta area, pan to their location
-      if (!geolocDone.current && mapInstanceRef.current && navigator.geolocation) {
-        geolocDone.current = true;
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const { latitude, longitude } = pos.coords;
-          if (latitude >= 34.24 && latitude <= 34.42 && longitude >= 35.82 && longitude <= 36.00) {
-            mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
-            mapInstanceRef.current.setZoom(15);
-          }
-        }, () => {});
-      }
-      return () => {
-        markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
-        markersRef.current = [];
-        if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
       };
-    }, [mapLoaded, filteredLocations]);
+      geoMarkerRef.current = new GeoOverlay();
+      geoMarkerRef.current.setMap(mapInstanceRef.current);
+    }, () => {});
+  };
 
-    // Lightweight effect: update marker visuals when favs change (no marker recreation, no zoom change)
-    useEffect(() => {
-      favsRef.current = favs;
-      if (!mapInstanceRef.current || markersRef.current.length === 0) return;
-      const zoom = mapInstanceRef.current.getZoom();
-      markersRef.current.forEach(({ overlay, loc }) => {
-        const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
-        const color = markerColors[loc.category] || '#10b981';
-        const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
-        overlay.elements = {
-          elDot: makeDotEl(color, loc.category, locFav),
-          elIcon: makeIconEl(loc.category, color, locFav),
-          elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
-        };
-        overlay.isFav = locFav;
-        if (overlay.div) overlay.div.style.zIndex = locFav ? 10 : 1;
-        overlay.updateContent(zoom, false);
-      });
-    }, [favs]);
+  const MapScreen = () => <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
+    {GOOGLE_MAPS_KEY ? (
+      mapError ? <div style={{ width: '100%', height: '100%', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 48, height: 48, color: '#d1d5db', margin: '0 auto 12px' }} /><p style={{ color: '#6b7280', marginBottom: 12 }}>{t('Map failed to load', 'فشل تحميل الخريطة')}</p><button onClick={() => window.location.reload()} style={{ padding: '8px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer', fontSize: 14 }}>{t('Reload', 'إعادة تحميل')}</button></div></div>
+      : <>
+        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        {!mapLoaded && <div style={{ position: 'absolute', inset: 0, background: '#f0f4ee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 32, height: 32, color: '#10b981', animation: 'spin 1s linear infinite' }} /></div>}
+      </>
+    ) : (
+      <div style={{ width: '100%', height: '100%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key', 'أضف مفتاح خرائط جوجل')}</p></div></div>
+    )}
 
-    useEffect(() => {
-      if (!selectedMarker || !carouselRef.current) return;
-      // Delay to let updateCards/render settle after panTo triggers idle
-      const timer = setTimeout(() => {
-        if (!carouselRef.current) return;
-        const idx = visibleCardsRef.current.findIndex(v => v.id === selectedMarker.id && v.type === selectedMarker.type);
-        if (idx >= 0 && carouselRef.current.children[idx]) {
-          carouselRef.current.children[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }, [selectedMarker, visibleCards]);
-
-    const handleLocateMe = () => {
-      if (!navigator.geolocation || !mapInstanceRef.current) return;
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
-        const position = { lat: latitude, lng: longitude };
-        mapInstanceRef.current.panTo(position);
-        mapInstanceRef.current.setZoom(16);
-        setGeoActive(true);
-        if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
-        // Blue dot overlay
-        const GeoOverlay = class extends window.google.maps.OverlayView {
-          onAdd() {
-            this.div = document.createElement('div');
-            this.div.style.cssText = 'position:absolute;';
-            this.div.innerHTML = '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);animation:geoPulse 2s infinite"></div>';
-            this.getPanes().overlayMouseTarget.appendChild(this.div);
-          }
-          draw() {
-            const proj = this.getProjection();
-            if (!proj || !this.div) return;
-            const p = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(position.lat, position.lng));
-            if (p) { this.div.style.left = (p.x - 11) + 'px'; this.div.style.top = (p.y - 11) + 'px'; }
-          }
-          onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
-        };
-        geoMarkerRef.current = new GeoOverlay();
-        geoMarkerRef.current.setMap(mapInstanceRef.current);
-      }, () => {});
-    };
-
-    return <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
-      {GOOGLE_MAPS_KEY ? (
-        mapError ? <div style={{ width: '100%', height: '100%', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 48, height: 48, color: '#d1d5db', margin: '0 auto 12px' }} /><p style={{ color: '#6b7280', marginBottom: 12 }}>{t('Map failed to load', 'فشل تحميل الخريطة')}</p><button onClick={() => window.location.reload()} style={{ padding: '8px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer', fontSize: 14 }}>{t('Reload', 'إعادة تحميل')}</button></div></div>
-        : <>
-          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
-          {!mapLoaded && <div style={{ position: 'absolute', inset: 0, background: '#f0f4ee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 32, height: 32, color: '#10b981', animation: 'spin 1s linear infinite' }} /></div>}
-        </>
-      ) : (
-        <div style={{ width: '100%', height: '100%', background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 64, height: 64, color: '#86efac', margin: '0 auto 16px' }} /><p style={{ color: '#4b5563' }}>{t('Add Google Maps API key', 'أضف مفتاح خرائط جوجل')}</p></div></div>
-      )}
-
-      {/* Top bar: search + village filter + category chips */}
-      <div style={{ position: 'absolute', top: 6, left: 6, right: 6, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Row 1: Search bar + village + lang */}
-        <div style={{ background: 'rgba(255,255,255,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
-          <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', textAlign: isRTL ? 'right' : 'left' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <MapPin style={{ width: 10, height: 10 }} />
-              {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
-              <ChevronDown style={{ width: 10, height: 10 }} />
-            </button>
-            {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '4px 6px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626' }}><X style={{ width: 10, height: 10 }} /></button>}
-            <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
-          </div>
-        </div>
-        {/* Row 2: Category chips */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', direction: isRTL ? 'rtl' : 'ltr' }}>
-          {[
-            { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
-            { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
-            { id: 'religious', icon: StickCross, en: 'Churches', ar: 'كنائس', color: '#d4a054' },
-            { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
-            { id: 'heritage', icon: Landmark, en: 'Landmarks', ar: 'معالم', color: '#8d8680' },
-            { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
-          ].map(c => {
-            const active = mapFilter.includes(c.id);
-            const Icon = c.icon;
-            return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'rgba(255,255,255,0.45)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
-              <Icon style={{ width: 13, height: 13 }} />
-              {t(c.en, c.ar)}
-            </button>;
-          })}
+    {/* Top bar: search + village filter + category chips */}
+    <div style={{ position: 'absolute', top: 6, left: 6, right: 6, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Row 1: Search bar + village + lang */}
+      <div style={{ background: 'rgba(255,255,255,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
+        <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', textAlign: isRTL ? 'right' : 'left' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <MapPin style={{ width: 10, height: 10 }} />
+            {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
+            <ChevronDown style={{ width: 10, height: 10 }} />
+          </button>
+          {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '4px 6px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626' }}><X style={{ width: 10, height: 10 }} /></button>}
+          <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
         </div>
       </div>
-
-      {/* Village dropdown panel */}
-      {showVillageDrop && <div style={{ position: 'absolute', top: 82, [isRTL ? 'right' : 'left']: 6, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200, maxHeight: 300, overflowY: 'auto' }}>
-        {villages.map(v => {
-          const active = villageFilter.includes(v);
-          const count = allLocations.filter(l => l.village === v && (mapFilter.length === 0 || mapFilter.includes(l.category))).length;
-          return <button key={v} onClick={() => { toggleVillage(v); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#f3f4f6' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: isRTL ? 'right' : 'left' }}>
-            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#1f2937' : '#d1d5db'}`, background: active ? '#1f2937' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
-            <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{v}</span>
-            <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
+      {/* Row 2: Category chips */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', direction: isRTL ? 'rtl' : 'ltr' }}>
+        {[
+          { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
+          { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
+          { id: 'religious', icon: StickCross, en: 'Churches', ar: 'كنائس', color: '#d4a054' },
+          { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
+          { id: 'heritage', icon: Landmark, en: 'Landmarks', ar: 'معالم', color: '#8d8680' },
+          { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
+        ].map(c => {
+          const active = mapFilter.includes(c.id);
+          const Icon = c.icon;
+          return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'rgba(255,255,255,0.45)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
+            <Icon style={{ width: 13, height: 13 }} />
+            {t(c.en, c.ar)}
           </button>;
         })}
-        {villageFilter.length > 0 && <button onClick={() => { setVillageFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
-      </div>}
+      </div>
+    </div>
 
-      {/* Click outside to close dropdown */}
-      {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
+    {/* Village dropdown panel */}
+    {showVillageDrop && <div style={{ position: 'absolute', top: 82, [isRTL ? 'right' : 'left']: 6, zIndex: 20, background: 'white', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', padding: 6, minWidth: 200, maxHeight: 300, overflowY: 'auto' }}>
+      {villages.map(v => {
+        const active = villageFilter.includes(v);
+        const count = allLocations.filter(l => l.village === v && (mapFilter.length === 0 || mapFilter.includes(l.category))).length;
+        return <button key={v} onClick={() => { toggleVillage(v); setSelectedMarker(null); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: active ? '#f3f4f6' : 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', textAlign: isRTL ? 'right' : 'left' }}>
+          <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${active ? '#1f2937' : '#d1d5db'}`, background: active ? '#1f2937' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{active && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}</div>
+          <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{v}</span>
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>{count}</span>
+        </button>;
+      })}
+      {villageFilter.length > 0 && <button onClick={() => { setVillageFilter([]); setSelectedMarker(null); }} style={{ width: '100%', padding: '8px 10px', background: 'transparent', border: 'none', borderTop: '1px solid #f3f4f6', borderRadius: 0, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 500, marginTop: 4 }}>{t('Clear All', 'مسح الكل')}</button>}
+    </div>}
 
-      {/* Locate me button */}
-      <button onClick={handleLocateMe} style={{
-        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 230 : 76, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
-        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
-        background: 'rgba(255,255,255,0.5)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'bottom 0.3s ease',
-      }}>
-        <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
-      </button>
+    {/* Click outside to close dropdown */}
+    {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
-      {/* Card toggle button */}
-      {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
-        position: 'absolute', bottom: cardsVisible ? 230 : 76, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
-        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
-        background: 'rgba(255,255,255,0.5)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'bottom 0.3s ease',
-      }}>
-        {cardsVisible
-          ? <ChevronDown style={{ width: 20, height: 20, color: '#6b7280' }} />
-          : <ChevronRight style={{ width: 20, height: 20, color: '#6b7280', transform: 'rotate(-90deg)' }} />}
-      </button>}
+    {/* Locate me button */}
+    <button onClick={handleLocateMe} style={{
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 230 : 76, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+      width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
+      background: 'rgba(255,255,255,0.5)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'bottom 0.3s ease',
+    }}>
+      <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
+    </button>
 
-      {/* Card carousel */}
-      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 68px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
-        {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center' }}>
-          <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
-          <button onClick={e => { e.stopPropagation(); toggleFav(loc.id, loc.type === 'place' ? 'place' : 'business'); }} style={{ position: 'absolute', top: 8, [isRTL ? 'left' : 'right']: 8, width: 32, height: 32, borderRadius: 9999, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Heart style={{ width: 16, height: 16, color: 'white', fill: isFav(loc.id, loc.type === 'place' ? 'place' : 'business') ? 'white' : 'none' }} />
-          </button>
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: 16, lineHeight: 1.2, marginBottom: 2 }}>{isRTL ? (loc.nameAr || loc.name) : loc.name}</h3>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ textTransform: 'uppercase', letterSpacing: 0.5, color: 'rgba(255,255,255,0.6)' }}>{loc.category}</span>
-              <span style={{ color: 'rgba(255,255,255,0.4)' }}>·</span>
-              <MapPin style={{ width: 10, height: 10 }} />{loc.village}
-              {loc.rating && <><Star style={{ width: 10, height: 10, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span>{loc.rating}</span></>}
-            </p>
-          </div>
-          {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
-        </div>)}
-      </div>}
-      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
-    </div>;
-  };
+    {/* Card toggle button */}
+    {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
+      position: 'absolute', bottom: cardsVisible ? 230 : 76, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+      width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
+      background: 'rgba(255,255,255,0.5)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'bottom 0.3s ease',
+    }}>
+      {cardsVisible
+        ? <ChevronDown style={{ width: 20, height: 20, color: '#6b7280' }} />
+        : <ChevronRight style={{ width: 20, height: 20, color: '#6b7280', transform: 'rotate(-90deg)' }} />}
+    </button>}
+
+    {/* Card carousel */}
+    {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 68px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
+      {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center' }}>
+        <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
+        <button onClick={e => { e.stopPropagation(); toggleFav(loc.id, loc.type === 'place' ? 'place' : 'business'); }} style={{ position: 'absolute', top: 8, [isRTL ? 'left' : 'right']: 8, width: 32, height: 32, borderRadius: 9999, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Heart style={{ width: 16, height: 16, color: 'white', fill: isFav(loc.id, loc.type === 'place' ? 'place' : 'business') ? 'white' : 'none' }} />
+        </button>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 16, lineHeight: 1.2, marginBottom: 2 }}>{isRTL ? (loc.nameAr || loc.name) : loc.name}</h3>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ textTransform: 'uppercase', letterSpacing: 0.5, color: 'rgba(255,255,255,0.6)' }}>{loc.category}</span>
+            <span style={{ color: 'rgba(255,255,255,0.4)' }}>·</span>
+            <MapPin style={{ width: 10, height: 10 }} />{loc.village}
+            {loc.rating && <><Star style={{ width: 10, height: 10, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span>{loc.rating}</span></>}
+          </p>
+        </div>
+        {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
+      </div>)}
+    </div>}
+    <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
+  </div>;
+
 
   const FavsScreen = () => {
     const allSaved = React.useMemo(() => {
@@ -1089,7 +1091,7 @@ export default function ZghartaTourismApp() {
     {tab === 'guide' && <GuideScreen />}
     {tab === 'explore' && <ExploreScreen />}
     {tab === 'events' && <EventsScreen />}
-    {tab === 'map' && <MapScreen />}
+    <div style={tab !== 'map' ? { display: 'none' } : undefined}>{MapScreen()}</div>
     {tab === 'favorites' && <FavsScreen />}
     {selPlace && <PlaceModal place={selPlace} onClose={() => setSelPlace(null)} />}
     {selBiz && <BizModal business={selBiz} onClose={() => setSelBiz(null)} />}
