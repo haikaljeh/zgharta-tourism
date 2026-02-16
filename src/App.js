@@ -519,11 +519,7 @@ export default function ZghartaTourismApp() {
     const label = document.createElement('div');
     const truncated = name.length > 20 ? name.slice(0, 20) + '…' : name;
     label.style.cssText = `font-size:12px;font-weight:600;color:${color};white-space:nowrap;text-shadow:0 0 3px white,-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;`;
-    if (fav) {
-      label.innerHTML = `<span style="color:${color}">♥</span> ${truncated}`;
-    } else {
-      label.textContent = truncated;
-    }
+    label.textContent = truncated;
     el.appendChild(iconWrap);
     el.appendChild(label);
     return el;
@@ -888,53 +884,51 @@ export default function ZghartaTourismApp() {
   </div>;
 
 
-  const FavsScreen = () => {
-    const allSaved = React.useMemo(() => {
-      const fP = places.filter(p => favs.places.includes(p.id));
-      const fB = businesses.filter(b => favs.businesses.includes(b.id));
-      return [...fP.map(p => ({ ...p, type: 'place' })), ...fB.map(b => ({ ...b, type: 'business' }))];
-    }, [places, businesses, favs]);
-    const empty = allSaved.length === 0;
-    const totalCount = allSaved.length;
+  // FavsScreen state lifted to parent to prevent remount flicker
+  const allSaved = React.useMemo(() => {
+    const fP = places.filter(p => favs.places.includes(p.id));
+    const fB = businesses.filter(b => favs.businesses.includes(b.id));
+    return [...fP.map(p => ({ ...p, type: 'place' })), ...fB.map(b => ({ ...b, type: 'business' }))];
+  }, [places, businesses, favs]);
+  const favsEmpty = allSaved.length === 0;
+  const favsTotalCount = allSaved.length;
+  const favsGroups = React.useMemo(() => {
+    const g = {};
+    allSaved.forEach(i => { if (!g[i.category]) g[i.category] = []; g[i.category].push(i); });
+    return g;
+  }, [allSaved]);
+  const catEmoji = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', shop: '🛍', cafe: '☕' };
 
-    // Group by category
-    const groups = React.useMemo(() => {
-      const g = {};
-      allSaved.forEach(i => { if (!g[i.category]) g[i.category] = []; g[i.category].push(i); });
-      return g;
-    }, [allSaved]);
-    const catEmoji = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', shop: '🛍', cafe: '☕' };
+  const shareTrip = async () => {
+    let text = `${t('My Zgharta Caza Trip', 'رحلتي في قضاء زغرتا')}:\n\n`;
+    allSaved.forEach(i => { text += `${catEmoji[i.category] || '📍'} ${i.name} — ${i.village}\n`; });
+    text += `\n${t('Explore Zgharta Caza, North Lebanon!', 'استكشف قضاء زغرتا، شمال لبنان!')}`;
+    if (navigator.share) { try { await navigator.share({ title: t('My Zgharta Trip', 'رحلتي في زغرتا'), text }); } catch {} }
+    else { try { await navigator.clipboard.writeText(text); alert(t('Copied to clipboard!', 'تم النسخ!')); } catch {} }
+  };
 
-    const shareTrip = async () => {
-      let text = `${t('My Zgharta Caza Trip', 'رحلتي في قضاء زغرتا')}:\n\n`;
-      allSaved.forEach(i => { text += `${catEmoji[i.category] || '📍'} ${i.name} — ${i.village}\n`; });
-      text += `\n${t('Explore Zgharta Caza, North Lebanon!', 'استكشف قضاء زغرتا، شمال لبنان!')}`;
-      if (navigator.share) { try { await navigator.share({ title: t('My Zgharta Trip', 'رحلتي في زغرتا'), text }); } catch {} }
-      else { try { await navigator.clipboard.writeText(text); alert(t('Copied to clipboard!', 'تم النسخ!')); } catch {} }
-    };
+  const viewAllOnMap = () => { setMapVillageFilter([]); setTab('map'); };
 
-    const viewAllOnMap = () => { setMapVillageFilter([]); setTab('map'); };
-
-    return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
+  const FavsScreen = () => <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
         <div style={{ padding: '20px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }}>{t('Saved', 'المحفوظات')}</h1>
-            {!empty && <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 2 }}>{totalCount} {t('places saved', 'أماكن محفوظة')}</p>}
+            {!favsEmpty && <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 2 }}>{favsTotalCount} {t('places saved', 'أماكن محفوظة')}</p>}
           </div>
-          {!empty && <div style={{ display: 'flex', gap: 8 }}>
+          {!favsEmpty && <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={viewAllOnMap} style={{ padding: '8px 14px', background: '#f3f4f6', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#374151', display: 'flex', alignItems: 'center', gap: 5 }}><Map style={{ width: 14, height: 14 }} />{t('Map', 'خريطة')}</button>
             <button onClick={shareTrip} style={{ padding: '8px 14px', background: '#10b981', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'white', display: 'flex', alignItems: 'center', gap: 5 }}><Share2 style={{ width: 14, height: 14 }} />{t('Share', 'مشاركة')}</button>
           </div>}
         </div>
       </div>
-      {empty ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
+      {favsEmpty ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
         <Heart style={{ width: 52, height: 52, color: '#e5e7eb', marginBottom: 16 }} />
         <p style={{ color: '#6b7280', fontSize: 16, marginBottom: 4 }}>{t('No saved places yet', 'لا توجد محفوظات')}</p>
         <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 20, textAlign: 'center', maxWidth: 260 }}>{t('Tap the heart on any place to save it here for your trip', 'اضغط على القلب لحفظ الأماكن هنا')}</p>
         <button onClick={() => setTab('explore')} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer', fontSize: 15, fontWeight: 500 }}>{t('Start Exploring', 'ابدأ الاستكشاف')}</button>
       </div> : <div style={{ padding: 16 }}>
-        {Object.entries(groups).map(([cat, items]) => {
+        {Object.entries(favsGroups).map(([cat, items]) => {
           const CatI = catIcons[cat] || MapPin;
           return <div key={cat} style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -959,7 +953,6 @@ export default function ZghartaTourismApp() {
         })}
       </div>}
     </div>;
-  };
 
   const PlaceModal = ({ place: p, onClose }) => {
     const nearby = getNearby(p.coordinates, p.id);
@@ -1093,7 +1086,7 @@ export default function ZghartaTourismApp() {
     {tab === 'explore' && <ExploreScreen />}
     {tab === 'events' && <EventsScreen />}
     <div style={tab !== 'map' ? { display: 'none' } : undefined}>{MapScreen()}</div>
-    {tab === 'favorites' && <FavsScreen />}
+    {tab === 'favorites' && FavsScreen()}
     {selPlace && <PlaceModal place={selPlace} onClose={() => setSelPlace(null)} />}
     {selBiz && <BizModal business={selBiz} onClose={() => setSelBiz(null)} />}
     {selEvent && <EventModal event={selEvent} onClose={() => setSelEvent(null)} />}
