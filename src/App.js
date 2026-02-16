@@ -690,8 +690,8 @@ export default function ZghartaTourismApp() {
             {lat: 34.365, lng: 35.835}, {lat: 34.385, lng: 35.835}, {lat: 34.400, lng: 35.838},
             {lat: 34.413, lng: 35.840},
           ],
-          strokeColor: '#10b981', strokeOpacity: 0.5, strokeWeight: 2.5,
-          fillColor: '#10b981', fillOpacity: 0.03,
+          strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 3,
+          fillColor: '#10b981', fillOpacity: 0.05,
           clickable: false, map: mapInstanceRef.current,
         });
       }
