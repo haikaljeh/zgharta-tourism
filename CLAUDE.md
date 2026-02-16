@@ -64,7 +64,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 - `favs` — `{ places: [id...], businesses: [id...] }` (persisted to localStorage `zgharta-favs`)
 - `catFilter` — Category filter for Explore screen
 - `mapFilter` — Set of active category filters for MapScreen chips
-- `mapVillageFilter` — Village filter shared between Guide and Map screens
+- `mapVillageFilter` — Village filter shared between Explore, Guide, and Map screens
 - `selectedMarker` — Currently highlighted marker on map (auto-scrolls carousel)
 - `visibleCards` — Top 8 places/businesses in current map viewport (carousel data; persists when viewport is empty)
 - `geoActive` — Whether locate-me button is active (MapScreen)
@@ -85,7 +85,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | Screen | Tab ID | Rendering | Description |
 |--------|--------|-----------|-------------|
 | `GuideScreen` | `'guide'` | `<GuideScreen />` | Travel magazine landing: cinematic hero, full-image must-see card, horizontal category strip, calendar-style event, story-style top rated, circular village thumbnails, minimal transit directions |
-| `ExploreScreen` | `'explore'` | `<ExploreScreen />` | List view with global search, rating filter, places/businesses toggle, category pills |
+| `ExploreScreen` | `'explore'` | `<ExploreScreen />` | Warm gradient list view with global search, rating filter, village filter dropdown (synced with MapScreen via `mapVillageFilter`), icon-enriched category pills with per-category colors, card shadows with inline favorite hearts, colored category badges, active filters summary bar with removable tags, magazine-style empty state with clear-all button |
 | `EventsScreen` | `'events'` | `<EventsScreen />` | Events list with upcoming/past/all toggle and category filters |
 | `MapScreen` | `'map'` | `{MapScreen()}` (function call) | Google Maps with 3-tier HtmlMarker overlays, frosted glass search/filters, locate-me button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel. **Always mounted** (hidden via `display:none` when not active tab) |
 | `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category, share-trip, view-on-map |
@@ -169,7 +169,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 ### Design Philosophy
 - **Map tab = "outdoor"** — transparent, immersive, frosted glass UI overlaying the map
 - **Other tabs = "indoor"** — warm, cozy, content-rich, like a beautiful travel magazine
-- GuideScreen uses warm cream gradient background (`#fafaf9` → `#f5f5f0`), cinematic full-image cards, editorial typography with varied weights (800 hero → 600 sections → 400 body), 32px section spacing, `letterSpacing: 0.5` on section titles
+- GuideScreen and ExploreScreen use warm cream gradient background (`#fafaf9` → `#f5f5f0`). GuideScreen has cinematic full-image cards, editorial typography with varied weights (800 hero → 600 sections → 400 body), 32px section spacing, `letterSpacing: 0.5` on section titles
 
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
@@ -202,7 +202,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **`favsRef`** — Ref tracking latest `favs` state; used by the marker creation effect so `favs` is not in its dependency array. A separate lightweight effect updates marker visuals in-place when favs change (no marker destruction/recreation, no zoom disruption).
 - **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (map), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `favsGroups` (favs)
 - **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
-- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions; `prevFiltersRef` for fitBounds guard
+- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions
 
 ### Map Implementation
 - Google Maps loaded dynamically via script tag injection (no `mapId` — raster mode for local JSON styles)
@@ -223,14 +223,14 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
 - **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
-- **fitBounds guard:** Uses `prevFiltersRef` to only fitBounds when mapFilter/villageFilter actually change, not on favs changes
+- **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, or marker tap.
 - **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
 - **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - **Google attribution:** Repositioned above nav via CSS (`.gm-style > div:last-child { bottom: 56px }`)
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
 - **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
-- **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
+- **No fitBounds ever** — map never zooms out to fit markers; stays where the user left it
 - **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
 
 ### Navigation
