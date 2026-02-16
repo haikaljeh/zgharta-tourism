@@ -62,7 +62,10 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 - `selPlace`, `selBiz`, `selEvent` — Currently selected item for detail modals
 - `favs` — `{ places: [id...], businesses: [id...] }` (persisted to localStorage `zgharta-favs`)
 - `catFilter` — Category filter for Explore screen
+- `mapFilter` — Set of active category filters for MapScreen chips
 - `mapVillageFilter` — Village filter shared between Guide and Map screens
+- `selectedMarker` — Currently highlighted marker on map (auto-scrolls carousel)
+- `visibleCards` — Top 8 places/businesses in current map viewport (carousel data)
 - `places`, `businesses`, `events` — Data arrays from Supabase
 - `loading`, `error` — Fetch state
 
@@ -81,7 +84,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | `GuideScreen` | `'guide'` | Landing page: hero stats, featured place card, category quick-links, upcoming event banner, top-rated businesses, village carousel, getting-there directions |
 | `ExploreScreen` | `'explore'` | List view with global search, rating filter, places/businesses toggle, category pills |
 | `EventsScreen` | `'events'` | Events list with upcoming/past/all toggle and category filters |
-| `MapScreen` | `'map'` | Google Maps with custom OverlayView markers, pixel-based clustering, inline search, multi-select category/village filter dropdowns, preview card |
+| `MapScreen` | `'map'` | Google Maps with AdvancedMarkerElement + PinElement, zoom-based visibility, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel |
 | `FavsScreen` | `'favorites'` | Saved items grouped by category, share-trip, view-on-map |
 
 ### Modal Components (defined inside ZghartaTourismApp)
@@ -159,7 +162,7 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 ## Key Patterns & Conventions
 
 ### Styling
-- **All inline CSS** — no className usage except `.map-screen` for dvh height
+- **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
 - Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to Lucide icons, hex colors, and background colors
 - Map marker colors in separate `markerColors` object
 - RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` on all screens and modals, conditional `textAlign`/`flexDirection`, and `[isRTL ? 'right' : 'left']` for absolute positioning (back buttons, badges, dropdowns, close buttons)
@@ -185,15 +188,20 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Performance
 - **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (MapScreen), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `groups` (FavsScreen)
-- **useEffect cleanup:** Map rendering effect clears zoom timer and removes overlays on unmount; script loader clears recursive setTimeout
+- **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
+- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures (marker click listeners); `carouselRef` for auto-scroll on marker tap
 
 ### Map Implementation
-- Google Maps loaded dynamically via script tag injection
-- Custom `OverlayView` markers (not standard Markers/AdvancedMarkers)
-- Pixel-based clustering: converts lat/lng to world pixels, groups by pixel distance threshold that varies by zoom level
-- Tiny inline SVG icons for map dot markers
+- Google Maps loaded dynamically via script tag injection with `mapId` for cloud styling
+- **AdvancedMarkerElement + PinElement** markers (not OverlayView or standard Markers)
+- **Zoom-based visibility:** markers hidden at zoom <12, small dots at 12-13, full pins at 14+
+- **Category filter chips:** Horizontal scrollable row of pill-shaped chips (Restaurants, Hotels, Churches, Nature, Landmarks, Cafés) with icons, bilingual labels, multi-select, color-coded active states
+- **Swipeable card carousel:** Always-visible horizontal scroll-snap carousel of image-background cards at bottom of map. Cards show top 8 places/businesses visible in the map viewport (updated via `idle` listener with `getBounds().contains()`). Full-bleed images with dark gradient overlay, frosted heart buttons, white text. Tapping a marker auto-scrolls carousel to that card.
+- **Body scroll lock:** useEffect locks body/html overflow when map tab is active; root wrapper gets conditional `overflow: 'hidden'`
+- **Gesture handling:** `gestureHandling: 'greedy'` for mobile map interaction
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
-- Preview card positioned with `bottom: 84px` to sit above the 76px nav bar
+- Carousel positioned with `bottom: 68px` above the nav bar
+- Zoom control positioned at `RIGHT_TOP` to avoid overlap with carousel
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
 - **Geolocation:** On mount, requests user position; only pans to it if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
 - **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
@@ -202,7 +210,8 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Navigation
 - Tab-based via `tab` state — no React Router
-- Bottom nav is `position: fixed` with 5 tabs
+- Bottom nav is `position: fixed` with 5 tabs, compact sizing (icons 20px, labels 10px)
+- **Conditional nav styling:** Semi-transparent with blur on map tab (`rgba(255,255,255,0.55)`, `blur(20px)`), solid white on other tabs
 - Modals are full-screen overlays (`position: fixed, inset: 0, zIndex: 50`)
 - Max width: 448px centered (mobile-first design)
 
