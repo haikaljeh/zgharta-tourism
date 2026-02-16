@@ -35,7 +35,7 @@ export default function ZghartaTourismApp() {
     try { const saved = localStorage.getItem('zgharta-favs'); return saved ? JSON.parse(saved) : { places: [], businesses: [] }; }
     catch { return { places: [], businesses: [] }; }
   });
-  const [catFilter, setCatFilter] = useState('all');
+  const [catFilter, setCatFilter] = useState([]);
   const [mapVillageFilter, setMapVillageFilter] = useState([]);
   const [selEvent, setSelEvent] = useState(null);
   const [places, setPlaces] = useState([]);
@@ -198,7 +198,7 @@ export default function ZghartaTourismApp() {
             { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', gradient: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', color: '#1d4ed8' },
             { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', gradient: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#c2410c' },
             { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', gradient: 'linear-gradient(135deg, #f5f5f4, #e7e5e4)', color: '#57534e' }
-          ].map((c, i) => <button key={i} onClick={() => { setCatFilter(c.filter); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          ].map((c, i) => <button key={i} onClick={() => { setCatFilter([c.filter]); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <c.Icon style={{ width: 24, height: 24, color: c.color }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: c.color }}>{c.label}</span>
           </button>)}
@@ -290,9 +290,17 @@ export default function ZghartaTourismApp() {
   };
 
   const ExploreScreen = () => {
-    const [searchQ, setSearchQ] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [minRating, setMinRating] = useState(0);
     const [showFilters, setShowFilters] = useState(false);
+    const catScrollRef = React.useRef(null);
+
+    // Debounce search input by 200ms
+    useEffect(() => {
+      const timer = setTimeout(() => setDebouncedSearch(searchInput), 200);
+      return () => clearTimeout(timer);
+    }, [searchInput]);
 
     const allItems = React.useMemo(() => [
       ...places.map(p => ({ ...p, type: 'place' })),
@@ -303,20 +311,21 @@ export default function ZghartaTourismApp() {
       return (b.rating || 0) - (a.rating || 0);
     }), [places, businesses]);
 
-    const searchResults = React.useMemo(() => searchQ.length > 1 ? allItems.filter(i => {
-      const q = searchQ.toLowerCase();
-      return i.name.toLowerCase().includes(q) || (i.nameAr && i.nameAr.includes(searchQ)) || i.village.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
-    }).filter(i => !minRating || (i.rating && i.rating >= minRating)).slice(0, 12) : [], [searchQ, allItems, minRating]);
-
-    const filteredItems = React.useMemo(() => allItems
-      .filter(i => catFilter === 'all' || i.category === catFilter)
-      .filter(i => !minRating || (i.rating && i.rating >= minRating)),
-    [allItems, catFilter, minRating]);
+    const filteredItems = React.useMemo(() => {
+      const q = debouncedSearch.toLowerCase();
+      return allItems
+        .filter(i => catFilter.length === 0 || catFilter.includes(i.category))
+        .filter(i => !minRating || (i.rating && i.rating >= minRating))
+        .filter(i => !q || i.name.toLowerCase().includes(q) || (i.nameAr && i.nameAr.includes(debouncedSearch)) || i.village.toLowerCase().includes(q));
+    }, [allItems, catFilter, minRating, debouncedSearch]);
 
     const CatIcon = ({ cat, size = 14 }) => { const I = catIcons[cat] || MapPin; return <I style={{ width: size, height: size, color: catColors[cat] || '#6b7280' }} />; };
 
+    const toggleExploreCat = (id) => {
+      setCatFilter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
     const categories = [
-      { id: 'all', l: t('All', 'الكل') },
       { id: 'religious', l: t('Churches', 'كنائس') },
       { id: 'nature', l: t('Nature', 'طبيعة') },
       { id: 'heritage', l: t('Heritage', 'تراث') },
@@ -333,8 +342,8 @@ export default function ZghartaTourismApp() {
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: '#f3f4f6', borderRadius: 12, padding: '10px 14px' }}>
               <Search style={{ width: 18, height: 18, color: '#9ca3af', flexShrink: 0 }} />
-              <input type="text" placeholder={t('Search all places & businesses...', 'ابحث في كل الأماكن...')} value={searchQ} onChange={e => setSearchQ(e.target.value)} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }} />
-              {searchQ && <button onClick={() => setSearchQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X style={{ width: 16, height: 16, color: '#9ca3af' }} /></button>}
+              <input type="text" placeholder={t('Search all places & businesses...', 'ابحث في كل الأماكن...')} value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent', color: '#1f2937', textAlign: isRTL ? 'right' : 'left' }} />
+              {searchInput && <button onClick={() => { setSearchInput(''); setDebouncedSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X style={{ width: 16, height: 16, color: '#9ca3af' }} /></button>}
             </div>
             <button onClick={() => setShowFilters(f => !f)} style={{ width: 44, height: 44, borderRadius: 12, background: showFilters || minRating ? '#10b981' : '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <SlidersHorizontal style={{ width: 18, height: 18, color: showFilters || minRating ? 'white' : '#6b7280' }} />
@@ -346,30 +355,13 @@ export default function ZghartaTourismApp() {
           </div>}
         </div>
 
-        {searchQ.length > 1 && <div style={{ padding: '0 16px 12px' }}>
-          {searchResults.length > 0 ? <div style={{ background: 'white', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', maxHeight: 360, overflowY: 'auto' }}>
-            {searchResults.map(i => <button key={`${i.type}-${i.id}`} onClick={() => { i.type === 'place' ? setSelPlace(i) : setSelBiz(i); setSearchQ(''); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent', border: 'none', borderBottom: '1px solid #f9fafb', cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: catBgs[i.category] || '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><CatIcon cat={i.category} size={18} /></div>
-              <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}>
-                <p style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? (i.nameAr || i.name) : i.name}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>{i.village}</span>
-                  <span style={{ fontSize: 11, color: catColors[i.category] || '#6b7280', fontWeight: 500 }}>· {i.category}</span>
-                  {i.rating && <span style={{ fontSize: 12, color: '#f59e0b' }}>★ {i.rating}</span>}
-                </div>
-              </div>
-              {isRTL ? <ChevronLeft style={{ width: 16, height: 16, color: '#d1d5db' }} /> : <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db' }} />}
-            </button>)}
-          </div> : <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, padding: 16 }}>{t('No results for', 'لا نتائج لـ')} "{searchQ}"</p>}
-        </div>}
-
-        {searchQ.length <= 1 && <div style={{ padding: '0 16px 12px', overflowX: 'auto' }}><div style={{ display: 'flex', gap: 8 }}>{categories.map(c => {
-          const active = catFilter === c.id;
-          return <button key={c.id} onClick={() => setCatFilter(c.id)} style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: active ? 'none' : '1px solid #e5e7eb', cursor: 'pointer', whiteSpace: 'nowrap', background: active ? '#10b981' : 'white', color: active ? 'white' : '#4b5563' }}>{c.l}</button>;
-        })}</div></div>}
+        <div ref={catScrollRef} style={{ padding: '0 16px 12px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}><div style={{ display: 'flex', gap: 8 }}>{categories.map(c => {
+          const active = catFilter.includes(c.id);
+          return <button key={c.id} onClick={() => toggleExploreCat(c.id)} style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: active ? 'none' : '1px solid #e5e7eb', cursor: 'pointer', whiteSpace: 'nowrap', background: active ? '#10b981' : 'white', color: active ? 'white' : '#4b5563' }}>{c.l}</button>;
+        })}</div></div>
       </div>
 
-      {searchQ.length <= 1 && <div style={{ padding: 16 }}>
+      <div style={{ padding: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filteredItems.map(i => <div key={`${i.type}-${i.id}`} onClick={() => i.type === 'place' ? setSelPlace(i) : setSelBiz(i)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
             <PlaceImage src={i.image} category={i.category} name={i.name} style={{ width: 112, height: 112, flexShrink: 0 }} />
@@ -389,9 +381,13 @@ export default function ZghartaTourismApp() {
               </div>}
             </div>
           </div>)}
-          {filteredItems.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No results found', 'لا توجد نتائج')}</p>}
+          {filteredItems.length === 0 && <div style={{ textAlign: 'center', padding: 48 }}>
+            <Search style={{ width: 40, height: 40, color: '#e5e7eb', margin: '0 auto 12px' }} />
+            <p style={{ color: '#6b7280', fontSize: 15, marginBottom: 4 }}>{t('No results for', 'لا نتائج لـ')} "{searchInput}"</p>
+            <p style={{ color: '#9ca3af', fontSize: 13 }}>{t('Try different keywords or clear filters', 'جرّب كلمات أخرى أو أزل الفلاتر')}</p>
+          </div>}
         </div>
-      </div>}
+      </div>
     </div>;
   };
 
