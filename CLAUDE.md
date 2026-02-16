@@ -227,13 +227,13 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
 - **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, marker tap, or "Back to Zgharta" button.
 - **Back to Zgharta pill:** Floating frosted glass pill (Compass icon + "Zgharta Caza"/"زغرتا") appears when map center drifts outside the caza bounding box. Horizontally centered between locate-me and carousel toggle buttons, same `bottom` position and transition. On tap: pans to default center at zoom 13. Fades in/out via opacity transition, tracked by `outsideBounds` state updated on `idle` event.
-- **Zgharta caza boundary polygon:** `google.maps.Polygon` drawn once on map init, stored in `boundaryRef`. Approximate district boundary with emerald green stroke (0.5 opacity, 2.5 weight) and barely visible fill (0.03 opacity). `clickable: false`. Coordinates are approximate and should be refined later.
+- **Zgharta caza boundary polygon:** `google.maps.Polygon` drawn once on map init, stored in `boundaryRef`. 25-point boundary tracing outermost villages (Aalma NW, Aachach N, Miriata NE, Ehden E, Aarbet Qozhaya SE, Kfarsghab S, Toula/Baslouqit SW, Sebhel/Mejdlaya W). Emerald green stroke (0.5 opacity, 2.5 weight) and barely visible fill (0.03 opacity). `clickable: false`.
 - **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
 - **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - **Google attribution:** Repositioned above nav via CSS (`.gm-style > div:last-child { bottom: 56px }`)
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
-- **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
+- **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.275–34.420, lng: 35.830–36.005`), otherwise silently keeps default
 - **No fitBounds ever** — map never zooms out to fit markers; stays where the user left it. Only the "Back to Zgharta" button programmatically changes view.
 - **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
 
