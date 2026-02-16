@@ -443,6 +443,7 @@ export default function ZghartaTourismApp() {
     const [mapFilter, setMapFilter] = useState([]);
     const [geoActive, setGeoActive] = useState(false);
     const geoMarkerRef = React.useRef(null);
+    const [mapHeading, setMapHeading] = useState(0);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
     const [showVillageDrop, setShowVillageDrop] = useState(false);
@@ -455,6 +456,7 @@ export default function ZghartaTourismApp() {
     const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
     const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
+    const catEmojis = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', cafe: '☕', shop: '🛍' };
 
 
     useEffect(() => {
@@ -489,17 +491,20 @@ export default function ZghartaTourismApp() {
           gestureHandling: 'greedy',
           disableDefaultUI: true,
           zoomControl: false,
+          rotateControl: false,
+          heading: 0,
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
         mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
+        mapInstanceRef.current.addListener('heading_changed', () => setMapHeading(mapInstanceRef.current.getHeading() || 0));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
-          markersRef.current.forEach(({ marker, pinDot, pinFull }) => {
+          markersRef.current.forEach(({ marker, pinDot, pinFull, pinLabeled }) => {
             if (zoom < 12) {
               marker.map = null;
             } else {
               marker.map = mapInstanceRef.current;
-              marker.content = zoom >= 14 ? pinFull : pinDot;
+              marker.content = zoom >= 15 ? pinLabeled : zoom >= 14 ? pinFull : pinDot;
             }
           });
         });
@@ -528,6 +533,8 @@ export default function ZghartaTourismApp() {
 
       filteredLocations.forEach(loc => {
         const color = markerColors[loc.category] || '#10b981';
+        const emoji = catEmojis[loc.category] || '📍';
+        const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
 
         const pinDot = new window.google.maps.marker.PinElement({
           scale: 0.6,
@@ -544,10 +551,21 @@ export default function ZghartaTourismApp() {
           glyphColor: 'white',
         });
 
+        // Labeled marker: dot + emoji name label
+        const labeledEl = document.createElement('div');
+        labeledEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+        const labelDot = document.createElement('div');
+        labelDot.style.cssText = `width:12px;height:12px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
+        const labelText = document.createElement('div');
+        labelText.style.cssText = `font-size:11px;font-weight:600;color:${color};white-space:nowrap;text-shadow:-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;margin-top:2px;`;
+        labelText.textContent = `${emoji} ${locName}`;
+        labeledEl.appendChild(labelDot);
+        labeledEl.appendChild(labelText);
+
         const marker = new window.google.maps.marker.AdvancedMarkerElement({
           map: zoom >= 12 ? mapInstanceRef.current : null,
           position: { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
-          content: zoom >= 14 ? pinFull.element : pinDot.element,
+          content: zoom >= 15 ? labeledEl : zoom >= 14 ? pinFull.element : pinDot.element,
           collisionBehavior: window.google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
         });
 
@@ -556,7 +574,7 @@ export default function ZghartaTourismApp() {
           mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng });
         });
 
-        markersRef.current.push({ marker, pinDot: pinDot.element, pinFull: pinFull.element });
+        markersRef.current.push({ marker, pinDot: pinDot.element, pinFull: pinFull.element, pinLabeled: labeledEl });
       });
 
       // Fit bounds when filters are active
@@ -687,6 +705,20 @@ export default function ZghartaTourismApp() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280' }} />
+      </button>
+
+      {/* Compass button — visible only when rotated */}
+      <button onClick={() => { if (mapInstanceRef.current) mapInstanceRef.current.setHeading(0); }} style={{
+        position: 'absolute', bottom: 240, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
+        background: 'rgba(255,255,255,0.5)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        opacity: mapHeading !== 0 ? 1 : 0, pointerEvents: mapHeading !== 0 ? 'auto' : 'none',
+        transition: 'opacity 0.3s ease',
+      }}>
+        <Compass style={{ width: 22, height: 22, color: '#374151', transform: `rotate(${-mapHeading}deg)`, transition: 'transform 0.3s ease' }} />
       </button>
 
       {/* Card carousel */}
