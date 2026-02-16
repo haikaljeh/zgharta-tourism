@@ -457,6 +457,7 @@ export default function ZghartaTourismApp() {
     const geolocDone = React.useRef(false);
     const prevZoomTierRef = React.useRef(null);
     const prevFiltersRef = React.useRef({ mapFilter: [], villageFilter: [] });
+    const favsRef = React.useRef(favs);
 
     const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
     const filteredLocations = React.useMemo(() => allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village))), [allLocations, mapFilter, villageFilter]);
@@ -609,15 +610,11 @@ export default function ZghartaTourismApp() {
         }
       };
 
-      // Save current view before clearing markers
-      const savedZoom = mapInstanceRef.current.getZoom();
-      const savedCenter = mapInstanceRef.current.getCenter();
-
       // Clear old markers
       markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
       markersRef.current = [];
 
-      const zoom = savedZoom;
+      const zoom = mapInstanceRef.current.getZoom();
 
       // Custom overlay class for HTML markers
       const getZoomTier = (z) => z >= 17 ? 2 : z >= 14 ? 1 : 0;
@@ -666,7 +663,7 @@ export default function ZghartaTourismApp() {
       filteredLocations.forEach((loc, i) => {
         const color = markerColors[loc.category] || '#10b981';
         const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
-        const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
+        const locFav = loc.type === 'place' ? favsRef.current.places.includes(loc.id) : favsRef.current.businesses.includes(loc.id);
 
         const elements = {
           elDot: makeDotEl(color, loc.category, locFav),
@@ -683,10 +680,10 @@ export default function ZghartaTourismApp() {
         );
         overlay.setMap(mapInstanceRef.current);
 
-        markersRef.current.push({ overlay, elements });
+        markersRef.current.push({ overlay, elements, loc });
       });
 
-      // Fit bounds only when filters actually change (not on favs change)
+      // Fit bounds when filters change
       const filtersChanged = JSON.stringify(prevFiltersRef.current.mapFilter) !== JSON.stringify(mapFilter) || JSON.stringify(prevFiltersRef.current.villageFilter) !== JSON.stringify(villageFilter);
       prevFiltersRef.current = { mapFilter: [...mapFilter], villageFilter: [...villageFilter] };
       if (filtersChanged && filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
@@ -694,10 +691,6 @@ export default function ZghartaTourismApp() {
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
         else { mapInstanceRef.current.setCenter({ lat: filteredLocations[0].coordinates.lat, lng: filteredLocations[0].coordinates.lng }); mapInstanceRef.current.setZoom(15); }
-      } else if (!filtersChanged) {
-        // Restore view when only favs changed (no filter change)
-        mapInstanceRef.current.setCenter(savedCenter);
-        if (mapInstanceRef.current.getZoom() !== savedZoom) mapInstanceRef.current.setZoom(savedZoom);
       }
 
       // Update visible cards for carousel
@@ -719,7 +712,27 @@ export default function ZghartaTourismApp() {
         markersRef.current = [];
         if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
       };
-    }, [mapLoaded, filteredLocations, favs]);
+    }, [mapLoaded, filteredLocations]);
+
+    // Lightweight effect: update marker visuals when favs change (no marker recreation, no zoom change)
+    useEffect(() => {
+      favsRef.current = favs;
+      if (!mapInstanceRef.current || markersRef.current.length === 0) return;
+      const zoom = mapInstanceRef.current.getZoom();
+      markersRef.current.forEach(({ overlay, loc }) => {
+        const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
+        const color = markerColors[loc.category] || '#10b981';
+        const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
+        overlay.elements = {
+          elDot: makeDotEl(color, loc.category, locFav),
+          elIcon: makeIconEl(loc.category, color, locFav),
+          elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
+        };
+        overlay.isFav = locFav;
+        if (overlay.div) overlay.div.style.zIndex = locFav ? 10 : 1;
+        overlay.updateContent(zoom, false);
+      });
+    }, [favs]);
 
     useEffect(() => {
       if (!selectedMarker || !carouselRef.current) return;
