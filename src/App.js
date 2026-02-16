@@ -287,30 +287,46 @@ export default function ZghartaTourismApp() {
   };
 
   const ExploreScreen = () => {
-    const [expTab, setExpTab] = useState('places');
-    const [bizFilter, setBizFilter] = useState('all');
     const [searchQ, setSearchQ] = useState('');
     const [minRating, setMinRating] = useState(0);
     const [showFilters, setShowFilters] = useState(false);
 
-    const allItems = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))], [places, businesses]);
+    const allItems = React.useMemo(() => [
+      ...places.map(p => ({ ...p, type: 'place' })),
+      ...businesses.map(b => ({ ...b, type: 'business' }))
+    ].sort((a, b) => {
+      if (a.featured && !b.featured) return -1;
+      if (!a.featured && b.featured) return 1;
+      return (b.rating || 0) - (a.rating || 0);
+    }), [places, businesses]);
 
-    // Global search across everything
     const searchResults = React.useMemo(() => searchQ.length > 1 ? allItems.filter(i => {
       const q = searchQ.toLowerCase();
       return i.name.toLowerCase().includes(q) || (i.nameAr && i.nameAr.includes(searchQ)) || i.village.toLowerCase().includes(q) || (i.category && i.category.toLowerCase().includes(q));
     }).filter(i => !minRating || (i.rating && i.rating >= minRating)).slice(0, 12) : [], [searchQ, allItems, minRating]);
 
-    const fPlaces = React.useMemo(() => places.filter(p => catFilter === 'all' || p.category === catFilter), [places, catFilter]);
-    const fBiz = React.useMemo(() => businesses.filter(b => bizFilter === 'all' || b.category === bizFilter).filter(b => !minRating || (b.rating && b.rating >= minRating)), [businesses, bizFilter, minRating]);
+    const filteredItems = React.useMemo(() => allItems
+      .filter(i => catFilter === 'all' || i.category === catFilter)
+      .filter(i => !minRating || (i.rating && i.rating >= minRating)),
+    [allItems, catFilter, minRating]);
 
     const CatIcon = ({ cat, size = 14 }) => { const I = catIcons[cat] || MapPin; return <I style={{ width: size, height: size, color: catColors[cat] || '#6b7280' }} />; };
+
+    const categories = [
+      { id: 'all', l: t('All', 'الكل') },
+      { id: 'religious', l: t('Churches', 'كنائس') },
+      { id: 'nature', l: t('Nature', 'طبيعة') },
+      { id: 'heritage', l: t('Heritage', 'تراث') },
+      { id: 'restaurant', l: t('Restaurants', 'مطاعم') },
+      { id: 'hotel', l: t('Hotels', 'فنادق') },
+      { id: 'cafe', l: t('Cafes', 'مقاهي') },
+      { id: 'shop', l: t('Shops', 'متاجر') },
+    ];
 
     return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' }}>
         <div style={{ padding: '20px 16px 12px' }}>
           <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', textAlign: isRTL ? 'right' : 'left', marginBottom: 12 }}>{t('Explore', 'استكشف')}</h1>
-          {/* Global search bar */}
           <div style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: '#f3f4f6', borderRadius: 12, padding: '10px 14px' }}>
               <Search style={{ width: 18, height: 18, color: '#9ca3af', flexShrink: 0 }} />
@@ -321,14 +337,12 @@ export default function ZghartaTourismApp() {
               <SlidersHorizontal style={{ width: 18, height: 18, color: showFilters || minRating ? 'white' : '#6b7280' }} />
             </button>
           </div>
-          {/* Filter panel */}
           {showFilters && <div style={{ marginTop: 10, padding: 12, background: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>{t('Minimum Rating', 'الحد الأدنى للتقييم')}</p>
             <div style={{ display: 'flex', gap: 6 }}>{[0, 3, 3.5, 4, 4.5].map(r => <button key={r} onClick={() => setMinRating(r)} style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 13, border: 'none', cursor: 'pointer', background: minRating === r ? '#10b981' : 'white', color: minRating === r ? 'white' : '#4b5563', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>{r === 0 ? t('Any', 'الكل') : `${r}+`} {r > 0 && '⭐'}</button>)}</div>
           </div>}
         </div>
 
-        {/* Search results dropdown */}
         {searchQ.length > 1 && <div style={{ padding: '0 16px 12px' }}>
           {searchResults.length > 0 ? <div style={{ background: 'white', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', maxHeight: 360, overflowY: 'auto' }}>
             {searchResults.map(i => <button key={`${i.type}-${i.id}`} onClick={() => { i.type === 'place' ? setSelPlace(i) : setSelBiz(i); setSearchQ(''); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent', border: 'none', borderBottom: '1px solid #f9fafb', cursor: 'pointer', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
@@ -346,15 +360,35 @@ export default function ZghartaTourismApp() {
           </div> : <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, padding: 16 }}>{t('No results for', 'لا نتائج لـ')} "{searchQ}"</p>}
         </div>}
 
-        {/* Tabs and category filters — hidden when searching */}
-        {searchQ.length <= 1 && <>
-          <div style={{ padding: '0 16px 12px' }}><div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 9999, padding: 4 }}><button onClick={() => setExpTab('places')} style={{ flex: 1, padding: '10px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: 'none', cursor: 'pointer', background: expTab === 'places' ? 'white' : 'transparent', color: expTab === 'places' ? '#1f2937' : '#6b7280' }}>{t('Places', 'أماكن')}</button><button onClick={() => setExpTab('businesses')} style={{ flex: 1, padding: '10px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: 'none', cursor: 'pointer', background: expTab === 'businesses' ? 'white' : 'transparent', color: expTab === 'businesses' ? '#1f2937' : '#6b7280' }}>{t('Eat & Stay', 'طعام وإقامة')}</button></div></div>
-          <div style={{ padding: '0 16px 12px', overflowX: 'auto' }}><div style={{ display: 'flex', gap: 8 }}>{(expTab === 'places' ? [{ id: 'all', l: t('All', 'الكل') }, { id: 'religious', l: t('Religious', 'ديني') }, { id: 'nature', l: t('Nature', 'طبيعة') }, { id: 'heritage', l: t('Heritage', 'تراث') }] : [{ id: 'all', l: t('All', 'الكل') }, { id: 'restaurant', l: t('Restaurants', 'مطاعم') }, { id: 'hotel', l: t('Hotels', 'فنادق') }, { id: 'cafe', l: t('Cafes', 'مقاهي') }, { id: 'shop', l: t('Shops', 'متاجر') }]).map(c => { const active = expTab === 'places' ? catFilter === c.id : bizFilter === c.id; return <button key={c.id} onClick={() => expTab === 'places' ? setCatFilter(c.id) : setBizFilter(c.id)} style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: active ? 'none' : '1px solid #e5e7eb', cursor: 'pointer', whiteSpace: 'nowrap', background: active ? '#10b981' : 'white', color: active ? 'white' : '#4b5563' }}>{c.l}</button>; })}</div></div>
-        </>}
+        {searchQ.length <= 1 && <div style={{ padding: '0 16px 12px', overflowX: 'auto' }}><div style={{ display: 'flex', gap: 8 }}>{categories.map(c => {
+          const active = catFilter === c.id;
+          return <button key={c.id} onClick={() => setCatFilter(c.id)} style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 14, fontWeight: 500, border: active ? 'none' : '1px solid #e5e7eb', cursor: 'pointer', whiteSpace: 'nowrap', background: active ? '#10b981' : 'white', color: active ? 'white' : '#4b5563' }}>{c.l}</button>;
+        })}</div></div>}
       </div>
 
-      {/* Results list — hidden when searching */}
-      {searchQ.length <= 1 && <div style={{ padding: 16 }}>{expTab === 'places' ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fPlaces.map(p => <div key={p.id} onClick={() => setSelPlace(p)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={p.image} category={p.category} name={p.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={p.category} /><span style={{ fontSize: 12, color: catColors[p.category] || '#059669', fontWeight: 500 }}>{p.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (p.nameAr || p.name) : p.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin style={{ width: 12, height: 12 }} />{p.village}</p></div></div>)}{fPlaces.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No places found', 'لا توجد أماكن')}</p>}</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{fBiz.map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}><PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: 112, height: 112, flexShrink: 0 }} /><div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><CatIcon cat={b.category} /><span style={{ fontSize: 12, color: catColors[b.category] || '#059669', fontWeight: 500 }}>{b.category}</span></div><h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (b.nameAr || b.name) : b.name}</h3><p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{b.village}</p><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>{b.rating && <><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{b.rating}</span></>}<span style={{ fontSize: 13, color: '#9ca3af' }}>{b.priceRange}</span>{b.phone && <span style={{ fontSize: 12, color: '#10b981' }}>📞</span>}{b.website && <span style={{ fontSize: 12, color: '#3b82f6' }}>🌐</span>}</div></div></div>)}{fBiz.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No businesses found', 'لا توجد أعمال')}</p>}</div>}</div>}
+      {searchQ.length <= 1 && <div style={{ padding: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filteredItems.map(i => <div key={`${i.type}-${i.id}`} onClick={() => i.type === 'place' ? setSelPlace(i) : setSelBiz(i)} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <PlaceImage src={i.image} category={i.category} name={i.name} style={{ width: 112, height: 112, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: 16, textAlign: isRTL ? 'right' : 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <CatIcon cat={i.category} />
+                <span style={{ fontSize: 12, color: catColors[i.category] || '#059669', fontWeight: 500 }}>{i.category}</span>
+              </div>
+              <h3 style={{ fontWeight: 600, color: '#1f2937' }}>{isRTL ? (i.nameAr || i.name) : i.name}</h3>
+              <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <MapPin style={{ width: 12, height: 12 }} />{i.village}
+              </p>
+              {i.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{i.rating}</span>
+                {i.priceRange && <span style={{ fontSize: 13, color: '#9ca3af' }}>{i.priceRange}</span>}
+              </div>}
+            </div>
+          </div>)}
+          {filteredItems.length === 0 && <p style={{ textAlign: 'center', color: '#6b7280', padding: 32 }}>{t('No results found', 'لا توجد نتائج')}</p>}
+        </div>
+      </div>}
     </div>;
   };
 
