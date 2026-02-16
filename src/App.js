@@ -586,7 +586,7 @@ export default function ZghartaTourismApp() {
           this.div = document.createElement('div');
           this.div.style.cssText = 'position:absolute;cursor:pointer;';
           const z = this.getMap()?.getZoom() || 15;
-          this.div.appendChild(z >= 16 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
+          this.div.appendChild(z >= 17 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
           this.div.addEventListener('click', (e) => { e.stopPropagation(); this.onClick(); });
           this.getPanes().overlayMouseTarget.appendChild(this.div);
         }
@@ -602,7 +602,7 @@ export default function ZghartaTourismApp() {
           if (!this.div) return;
           if (zoom < 12) { this.div.style.display = 'none'; return; }
           this.div.style.display = '';
-          const el = zoom >= 16 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
+          const el = zoom >= 17 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
           if (this.div.firstChild !== el) { this.div.innerHTML = ''; this.div.appendChild(el); }
         }
       }
