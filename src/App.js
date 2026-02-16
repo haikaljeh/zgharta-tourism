@@ -658,7 +658,7 @@ export default function ZghartaTourismApp() {
       {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
       {/* Card carousel */}
-      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 64, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 12px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 76, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 12px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 48px)', maxWidth: 400, height: 190, borderRadius: 20, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)' }} />
