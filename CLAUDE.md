@@ -66,9 +66,9 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 - `mapFilter` — Set of active category filters for MapScreen chips
 - `mapVillageFilter` — Village filter shared between Guide and Map screens
 - `selectedMarker` — Currently highlighted marker on map (auto-scrolls carousel)
-- `visibleCards` — Top 8 places/businesses in current map viewport (carousel data)
+- `visibleCards` — Top 8 places/businesses in current map viewport (carousel data; persists when viewport is empty)
 - `geoActive` — Whether locate-me button is active (MapScreen)
-- `mapHeading` — Current map heading in degrees for compass button (MapScreen)
+- `cardsVisible` — Whether card carousel is shown or hidden (MapScreen, default `true`)
 - `places`, `businesses`, `events` — Data arrays from Supabase
 - `loading`, `error` — Fetch state
 
@@ -193,36 +193,37 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 ### Performance
 - **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (MapScreen), `allItems`, `searchResults`, `fPlaces`, `fBiz` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `groups` (FavsScreen)
 - **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
-- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures (marker click listeners); `carouselRef` for auto-scroll on marker tap
+- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay
 
 ### Map Implementation
-- Google Maps loaded dynamically via script tag injection with `mapId` for cloud styling
-- **3-tier marker system** using only `AdvancedMarkerElement` with custom DOM element content (no PinElement, no OverlayView):
+- Google Maps loaded dynamically via script tag injection (no `mapId` — raster mode for local JSON styles)
+- **POI hiding:** Local `styles` array hides all Google default POIs (`poi`, `poi.business`) and transit stations; only custom markers visible
+- **3-tier marker system** using custom `HtmlMarker` class extending `google.maps.OverlayView`:
   - **Zoom ≤13:** 10px colored dots with white border (`makeDotEl`)
-  - **Zoom 14-15:** 28px white circle with 2D category SVG icon inside (`makeIconEl`)
-  - **Zoom 16+:** Icon + truncated name label in category color with white text-shadow halo (`makeLabeledEl`)
+  - **Zoom 14-16:** 28px white circle with 2D category SVG icon inside (`makeIconEl`)
+  - **Zoom 17+:** Icon + truncated name label (max 20 chars) in category color with white text-shadow halo (`makeLabeledEl`)
+  - Content swapped via `updateContent(zoom)` on `zoom_changed` event
+  - Click listener on wrapper div works at all zoom levels; sets `selectedMarkerRef` synchronously before `panTo`
 - **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — all defined inside MapScreen
 - **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
 - **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
 - **Category filter chips:** Horizontal scrollable row of pill-shaped chips (Restaurants, Hotels, Churches, Nature, Landmarks, Cafés) with icons, bilingual labels, multi-select, color-coded active states
-- **Swipeable card carousel:** Always-visible horizontal scroll-snap carousel of image-background cards at bottom of map. Cards show top 8 places/businesses visible in the map viewport (updated via `idle` listener with `getBounds().contains()`). Full-bleed images with dark gradient overlay, frosted heart buttons, white text. Tapping a marker auto-scrolls carousel to that card.
-- **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via AdvancedMarkerElement). `geoActive` state highlights button blue; `dragstart` listener deactivates it.
-- **Compass button:** Bottom-right (RTL: bottom-left) frosted glass circle. Hidden when heading=0, fades in when map is rotated (two-finger gesture). Compass icon rotates to point north. Tap resets heading to 0. Listens to `heading_changed` event.
-- **Two-finger rotate:** Enabled via `heading: 0`, `rotateControl: false`, `gestureHandling: 'greedy'`
+- **Swipeable card carousel:** Horizontal scroll-snap carousel of image-background cards at bottom of map (`bottom: 56px`). Cards show top 8 places/businesses in viewport (updated via `idle` listener). Selected marker always injected into card list. Cards persist when viewport is empty (only updates when new results > 0). Full-bleed images with dark gradient overlay, frosted heart buttons, white text.
+- **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
+- **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
 - **Body scroll lock:** useEffect locks body/html overflow when map tab is active; root wrapper gets conditional `overflow: 'hidden'`
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
-- Carousel positioned with `bottom: 68px` above the nav bar
+- **Google attribution:** Repositioned above nav via CSS (`.gm-style > div:last-child { bottom: 56px }`)
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
 - **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
 - **No initial fitBounds** — map does not zoom out to show all markers on load; fitBounds only triggers on filter changes
-- **Soft color theme:** muted marker colors (`markerColors`), desaturated map styles (lighter water, landscape, road labels)
 - **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
 
 ### Navigation
 - Tab-based via `tab` state — no React Router
 - Bottom nav is `position: fixed` with 5 tabs, compact sizing (icons 20px, labels 10px)
-- **Active tab indicator:** Green pill background (`rgba(16,185,129,0.12)`) behind active icon (22px), with smooth transitions for background/size/weight. No top pill bar.
+- **Active tab indicator:** Green pill background (`rgba(16,185,129,0.2)`) behind active icon (22px, strokeWidth 2.5), darker green (`#059669`), bold 700 weight label, smooth transitions. No top pill bar.
 - **Conditional nav styling:** Semi-transparent with blur on map tab (`rgba(255,255,255,0.12)`, `blur(4px)`), solid white on other tabs
 - Modals are full-screen overlays (`position: fixed, inset: 0, zIndex: 50`)
 - Max width: 448px centered (mobile-first design)
