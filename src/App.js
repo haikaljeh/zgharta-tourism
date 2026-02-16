@@ -123,13 +123,6 @@ export default function ZghartaTourismApp() {
   // Show on map helper
   const showOnMap = (coords) => { setSelPlace(null); setSelBiz(null); setTab('map'); };
 
-  if (loading) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%)' }}><div style={{ textAlign: 'center' }}>
-    <div style={{ width: 80, height: 80, borderRadius: 20, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', backdropFilter: 'blur(8px)' }}><Compass style={{ width: 40, height: 40, color: 'white' }} /></div>
-    <h1 style={{ fontSize: 28, fontWeight: 800, color: 'white', marginBottom: 6 }}>Zgharta Caza</h1>
-    <p style={{ color: '#a7f3d0', fontSize: 14, marginBottom: 24 }}>North Lebanon · شمال لبنان</p>
-    <Loader2 style={{ width: 24, height: 24, color: '#6ee7b7', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-  </div><style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style></div>;
-  if (error) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: 24 }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div><h2 style={{ color: '#ef4444', marginBottom: 8 }}>{t('Connection Error', 'خطأ في الاتصال')}</h2><p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>{error}</p><button onClick={fetchData} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer' }}>{t('Try Again', 'حاول مجدداً')}</button></div></div>;
 
   // Consistent icon map used across all screens
   const catIcons = { religious: StickCross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee };
@@ -1086,6 +1079,14 @@ export default function ZghartaTourismApp() {
       </div>
     </div>;
   };
+
+  if (loading) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%)' }}><div style={{ textAlign: 'center' }}>
+    <div style={{ width: 80, height: 80, borderRadius: 20, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', backdropFilter: 'blur(8px)' }}><Compass style={{ width: 40, height: 40, color: 'white' }} /></div>
+    <h1 style={{ fontSize: 28, fontWeight: 800, color: 'white', marginBottom: 6 }}>Zgharta Caza</h1>
+    <p style={{ color: '#a7f3d0', fontSize: 14, marginBottom: 24 }}>North Lebanon · شمال لبنان</p>
+    <Loader2 style={{ width: 24, height: 24, color: '#6ee7b7', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+  </div><style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style></div>;
+  if (error) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: 24 }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div><h2 style={{ color: '#ef4444', marginBottom: 8 }}>{t('Connection Error', 'خطأ في الاتصال')}</h2><p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>{error}</p><button onClick={fetchData} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer' }}>{t('Try Again', 'حاول مجدداً')}</button></div></div>;
 
   return <div style={{ maxWidth: 448, margin: '0 auto', background: 'white', minHeight: '100vh', ...(tab === 'map' ? { height: '100vh', overflow: 'hidden' } : {}), fontFamily: isRTL ? 'Tajawal, sans-serif' : 'Inter, system-ui, sans-serif' }}>
     {tab === 'guide' && <GuideScreen />}
