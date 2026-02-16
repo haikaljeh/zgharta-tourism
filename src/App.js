@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Cross, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus, Filter, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Cross, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus, Filter } from 'lucide-react';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
@@ -437,11 +435,6 @@ export default function ZghartaTourismApp() {
     const mapInstanceRef = React.useRef(null);
     const markersRef = React.useRef([]);
     const [selectedMarker, setSelectedMarker] = useState(null);
-    const [sheetState, setSheetState] = useState('peek');
-    const sheetRef = React.useRef(null);
-    const sheetContentRef = React.useRef(null);
-    const pdfContentRef = React.useRef(null);
-    const dragRef = React.useRef({ startY: 0, startTranslate: 0, startTime: 0, isDragging: false });
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(false);
     const [mapFilter, setMapFilter] = useState([]);
@@ -540,7 +533,6 @@ export default function ZghartaTourismApp() {
 
         marker.addListener('click', () => {
           setSelectedMarker(loc);
-          setSheetState('peek');
           mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng });
         });
 
@@ -636,179 +628,28 @@ export default function ZghartaTourismApp() {
       {/* Click outside to close dropdown */}
       {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
-      {/* Bottom Sheet */}
-      {selectedMarker && (() => {
-        const sm = selectedMarker;
-        const nearby = getNearby(sm.coordinates, sm.id);
-        const PEEK_H = 160;
-        const HALF_H = Math.round(window.innerHeight * 0.5);
-        const FULL_H = window.innerHeight - 128;
-        const getTranslateY = (state) => state === 'full' ? 0 : state === 'half' ? (FULL_H - HALF_H) : (FULL_H - PEEK_H);
-
-        const snapTo = (state) => {
-          if (sheetRef.current) {
-            sheetRef.current.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
-            sheetRef.current.style.transform = `translateY(${getTranslateY(state)}px)`;
-          }
-          setSheetState(state);
-        };
-
-        const onTouchStart = (e) => {
-          if (sheetState === 'full' && sheetContentRef.current && sheetContentRef.current.scrollTop > 0) return;
-          const touch = e.touches[0];
-          dragRef.current = { startY: touch.clientY, startTranslate: getTranslateY(sheetState), startTime: Date.now(), isDragging: false };
-          if (sheetRef.current) sheetRef.current.style.transition = 'none';
-        };
-
-        const onTouchMove = (e) => {
-          const touch = e.touches[0];
-          const deltaY = touch.clientY - dragRef.current.startY;
-          if (Math.abs(deltaY) > 5) dragRef.current.isDragging = true;
-          if (!dragRef.current.isDragging) return;
-          if (sheetState === 'full' && sheetContentRef.current && sheetContentRef.current.scrollTop > 0 && deltaY < 0) return;
-          const newY = Math.max(0, dragRef.current.startTranslate + deltaY);
-          if (sheetRef.current) sheetRef.current.style.transform = `translateY(${newY}px)`;
-        };
-
-        const onTouchEnd = (e) => {
-          if (!dragRef.current.isDragging) return;
-          const touch = e.changedTouches[0];
-          const deltaY = touch.clientY - dragRef.current.startY;
-          const velocity = deltaY / (Date.now() - dragRef.current.startTime);
-          const currentY = dragRef.current.startTranslate + deltaY;
-
-          if (velocity > 0.5) {
-            // Fast swipe down
-            if (sheetState === 'full') snapTo('half');
-            else if (sheetState === 'half') snapTo('peek');
-            else setSelectedMarker(null);
-          } else if (velocity < -0.5) {
-            // Fast swipe up
-            if (sheetState === 'peek') snapTo('half');
-            else if (sheetState === 'half') snapTo('full');
-            else snapTo('full');
-          } else {
-            // Snap to nearest based on position
-            const peekY = getTranslateY('peek');
-            const halfY = getTranslateY('half');
-            const fullY = 0;
-            const dists = [
-              { state: 'full', d: Math.abs(currentY - fullY) },
-              { state: 'half', d: Math.abs(currentY - halfY) },
-              { state: 'peek', d: Math.abs(currentY - peekY) },
-            ];
-            // If dragged far below peek, dismiss
-            if (currentY > peekY + 60) { setSelectedMarker(null); return; }
-            dists.sort((a, b) => a.d - b.d);
-            snapTo(dists[0].state);
-          }
-        };
-
-        const handleExportPdf = async () => {
-          if (!pdfContentRef.current) return;
-          const canvas = await html2canvas(pdfContentRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-          const imgData = canvas.toDataURL('image/png');
-          const pdf = new jsPDF('p', 'mm', 'a4');
-          const pdfW = pdf.internal.pageSize.getWidth();
-          const pdfH = (canvas.height * pdfW) / canvas.width;
-          pdf.addImage(imgData, 'PNG', 0, 0, pdfW, Math.min(pdfH, pdf.internal.pageSize.getHeight()));
-          pdf.save(`${sm.name.replace(/\s+/g, '-')}.pdf`);
-        };
-
-        return <div ref={sheetRef} style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 20, height: FULL_H, background: 'white', borderRadius: '20px 20px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', transform: `translateY(${getTranslateY('peek')}px)`, transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', direction: isRTL ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column' }}
-          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-          {/* Drag handle */}
-          <div style={{ padding: '10px 0 6px', display: 'flex', justifyContent: 'center', flexShrink: 0, cursor: 'grab' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: '#d1d5db' }} />
-          </div>
-          {/* Scrollable content */}
-          <div ref={sheetContentRef} style={{ flex: 1, overflowY: sheetState === 'full' ? 'auto' : 'hidden', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
-            <div ref={pdfContentRef}>
-              {/* PEEK: name + photo + rating */}
-              <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12 }}>
-                <PlaceImage src={sm.image} category={sm.category} name={sm.name} style={{ width: 64, height: 64, borderRadius: 12, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, textAlign: isRTL ? 'right' : 'left' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[sm.category] || '#059669' }} />
-                    <span style={{ fontSize: 12, color: markerColors[sm.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{sm.category}</span>
-                    {sm.rating && <><Star style={{ width: 12, height: 12, color: '#fbbf24', fill: '#fbbf24', [isRTL ? 'marginRight' : 'marginLeft']: 4 }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{sm.rating}</span></>}
-                  </div>
-                  <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 17, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? (sm.nameAr || sm.name) : sm.name}</h3>
-                  <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}><MapPin style={{ width: 11, height: 11 }} />{sm.village}{sm.priceRange && <span style={{ color: '#9ca3af' }}> · {sm.priceRange}</span>}</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => toggleFav(sm.id, sm.type === 'place' ? 'place' : 'business')} style={{ ...circleBtn, width: 34, height: 34, background: isFav(sm.id, sm.type === 'place' ? 'place' : 'business') ? '#ef4444' : '#f3f4f6' }}><Heart style={{ width: 16, height: 16, color: isFav(sm.id, sm.type === 'place' ? 'place' : 'business') ? 'white' : '#6b7280', fill: isFav(sm.id, sm.type === 'place' ? 'place' : 'business') ? 'white' : 'none' }} /></button>
-                  <button onClick={() => shareLoc(sm.name, sm.village, sm.coordinates)} style={{ ...circleBtn, width: 34, height: 34, background: '#f3f4f6' }}><Share2 style={{ width: 14, height: 14, color: '#6b7280' }} /></button>
-                </div>
-                <button onClick={() => setSelectedMarker(null)} style={{ position: 'absolute', top: 10, [isRTL ? 'left' : 'right']: 12, width: 28, height: 28, background: '#f3f4f6', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><X style={{ width: 13, height: 13, color: '#6b7280' }} /></button>
+      {/* Preview card */}
+      {selectedMarker && <div style={{ position: 'absolute', bottom: 68, left: 8, right: 8, zIndex: 10, animation: 'slideUp 0.2s ease' }}>
+        <div onClick={() => { selectedMarker.type === 'place' ? setSelPlace(selectedMarker) : setSelBiz(selectedMarker); setSelectedMarker(null); }} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <PlaceImage src={selectedMarker.image} category={selectedMarker.category} name={selectedMarker.name} style={{ width: 100, height: 100, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: '10px 14px', textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: markerColors[selectedMarker.category] || '#059669' }} />
+                <span style={{ fontSize: 12, color: markerColors[selectedMarker.category] || '#059669', fontWeight: 600, textTransform: 'capitalize' }}>{selectedMarker.category}</span>
+                {selectedMarker.rating && <><Star style={{ width: 13, height: 13, color: '#fbbf24', fill: '#fbbf24', [isRTL ? 'marginRight' : 'marginLeft']: 4 }} /><span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{selectedMarker.rating}</span></>}
               </div>
-
-              {/* HALF: description + hours + contact */}
-              <div style={{ padding: '0 16px', borderTop: '1px solid #f3f4f6' }}>
-                {/* Hero image */}
-                {(sheetState === 'half' || sheetState === 'full') && sm.image && <div style={{ marginTop: 12, marginBottom: 12, borderRadius: 14, overflow: 'hidden', height: sheetState === 'full' ? 200 : 140 }}>
-                  <PlaceImage src={sm.image} category={sm.category} name={sm.name} style={{ width: '100%', height: '100%' }} />
-                </div>}
-                {(sheetState === 'half' || sheetState === 'full') && <div style={{ textAlign: isRTL ? 'right' : 'left' }}>
-                  <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 16, fontSize: 14, ...(sheetState === 'half' ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : {}) }}>{isRTL ? (sm.descriptionAr || sm.description) : sm.description}</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                    {sm.openHours && <div style={{ background: '#f9fafb', borderRadius: 12, padding: 12 }}><Clock style={{ width: 18, height: 18, color: '#10b981', marginBottom: 6 }} /><p style={{ fontSize: 12, color: '#6b7280' }}>{t('Hours', 'الساعات')}</p><p style={{ fontSize: 13, fontWeight: 500, color: '#1f2937' }}>{sm.openHours}</p></div>}
-                    {sm.coordinates?.lat && <div style={{ background: '#f9fafb', borderRadius: 12, padding: 12 }}><Navigation style={{ width: 18, height: 18, color: '#10b981', marginBottom: 6 }} /><p style={{ fontSize: 12, color: '#6b7280' }}>{t('Location', 'الموقع')}</p><p style={{ fontSize: 13, fontWeight: 500, color: '#1f2937' }}>{sm.coordinates.lat?.toFixed(4)}, {sm.coordinates.lng?.toFixed(4)}</p></div>}
-                  </div>
-                  {/* Phone + Website for businesses */}
-                  {(sm.phone || sm.website) && <div style={{ display: 'grid', gridTemplateColumns: sm.phone && sm.website ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 14 }}>
-                    {sm.phone && <a href={`tel:${sm.phone}`} style={{ ...primaryBtn, padding: 10, fontSize: 13 }}><Phone style={{ width: 16, height: 16 }} />{t('Call', 'اتصل')}</a>}
-                    {sm.website && <a href={sm.website} target="_blank" rel="noopener noreferrer" style={{ ...primaryBtn, padding: 10, fontSize: 13, background: '#3b82f6' }}><Globe style={{ width: 16, height: 16 }} />{t('Website', 'الموقع')}</a>}
-                  </div>}
-                </div>}
-
-                {/* FULL: specialties + actions + nearby */}
-                {sheetState === 'full' && <div style={{ textAlign: isRTL ? 'right' : 'left' }}>
-                  {/* Rating stars for businesses */}
-                  {sm.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
-                    {[1, 2, 3, 4, 5].map(s => <Star key={s} style={{ width: 18, height: 18, color: s <= Math.round(sm.rating) ? '#fbbf24' : '#e5e7eb', fill: s <= Math.round(sm.rating) ? '#fbbf24' : '#e5e7eb' }} />)}
-                    <span style={{ fontWeight: 600, color: '#374151', [isRTL ? 'marginRight' : 'marginLeft']: 4 }}>{sm.rating}</span>
-                  </div>}
-                  {/* Specialties */}
-                  {sm.specialties?.length > 0 && <div style={{ marginBottom: 16 }}><h3 style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8, fontSize: 14 }}>{t('Specialties', 'التخصصات')}</h3><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sm.specialties.map((s, i) => <span key={i} style={{ background: '#f3f4f6', color: '#4b5563', fontSize: 12, padding: '4px 12px', borderRadius: 9999 }}>{s}</span>)}</div></div>}
-                  {/* Verified + price badges */}
-                  {(sm.verified || sm.priceRange) && <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                    {sm.verified && <span style={{ background: '#d1fae5', color: '#059669', fontSize: 12, padding: '3px 10px', borderRadius: 9999, fontWeight: 500 }}>✓ {t('Verified', 'موثق')}</span>}
-                    {sm.priceRange && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 12, padding: '3px 10px', borderRadius: 9999 }}>{sm.priceRange}</span>}
-                  </div>}
-                </div>}
-              </div>
-
-              {/* FULL: Action buttons + nearby (outside pdfContentRef clipping) */}
-              {sheetState === 'full' && <div style={{ padding: '0 16px 16px', textAlign: isRTL ? 'right' : 'left' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                  {sm.coordinates?.lat && <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${sm.coordinates.lat},${sm.coordinates.lng}`, '_blank')} style={{ ...primaryBtn, padding: 10, fontSize: 13 }}><Navigation style={{ width: 16, height: 16 }} />{t('Directions', 'الاتجاهات')}</button>}
-                  <button onClick={handleExportPdf} style={{ ...secondaryBtn, padding: 10, fontSize: 13 }}><Download style={{ width: 16, height: 16 }} />{t('PDF', 'PDF')}</button>
-                </div>
-                {/* Google Maps reviews link for businesses */}
-                {sm.type === 'business' && sm.coordinates?.lat && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(sm.name + ' ' + sm.village + ' Lebanon')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 14px', color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
-                  <ExternalLink style={{ width: 13, height: 13 }} />{t('View on Google Maps', 'عرض في خرائط جوجل')}
-                </a>}
-                {/* Nearby */}
-                {nearby.length > 0 && <div>
-                  <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 10 }}>{t('Nearby', 'بالقرب')}</h3>
-                  <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8 }}>
-                    {nearby.map(n => <div key={`${n.type}-${n.id}`} onClick={() => { setSelectedMarker(n); setSheetState('peek'); mapInstanceRef.current?.panTo({ lat: n.coordinates.lat, lng: n.coordinates.lng }); }} style={{ flexShrink: 0, width: 130, background: '#f9fafb', borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
-                      <PlaceImage src={n.image} category={n.category} name={n.name} style={{ width: '100%', height: 80 }} />
-                      <div style={{ padding: 8 }}>
-                        <p style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? (n.nameAr || n.name) : n.name}</p>
-                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{n.dist < 1 ? `${(n.dist * 1000).toFixed(0)}m` : `${n.dist.toFixed(1)}km`}</p>
-                      </div>
-                    </div>)}
-                  </div>
-                </div>}
-                <div style={{ height: 16 }} />
-              </div>}
+              <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 16, marginBottom: 2, lineHeight: 1.2 }}>{isRTL ? (selectedMarker.nameAr || selectedMarker.name) : selectedMarker.name}</h3>
+              <p style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{selectedMarker.village}{selectedMarker.priceRange && <span style={{ color: '#9ca3af' }}> · {selectedMarker.priceRange}</span>}</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+              {isRTL ? <ChevronLeft style={{ width: 16, height: 16, color: '#d1d5db' }} /> : <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db' }} />}
             </div>
           </div>
-        </div>;
-      })()}
-      <style>{'.map-screen { height: 100vh; height: 100dvh; }'}</style>
+        </div>
+        <button onClick={e => { e.stopPropagation(); setSelectedMarker(null); }} style={{ position: 'absolute', top: 4, [isRTL ? 'left' : 'right']: 4, width: 24, height: 24, background: 'rgba(0,0,0,0.08)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 11, height: 11, color: '#6b7280' }} /></button>
+      </div>}
+      <style>{'.map-screen { height: 100vh; height: 100dvh; } @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }'}</style>
     </div>;
   };
 
