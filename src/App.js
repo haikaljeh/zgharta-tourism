@@ -542,6 +542,11 @@ export default function ZghartaTourismApp() {
           zoomControl: false,
           rotateControl: false,
           heading: 0,
+          styles: [
+            { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+            { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+          ],
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
         mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
