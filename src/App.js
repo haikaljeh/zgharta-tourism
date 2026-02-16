@@ -543,6 +543,8 @@ export default function ZghartaTourismApp() {
   const [showVillageDrop, setShowVillageDrop] = useState(false);
   const geolocDone = React.useRef(false);
   const prevZoomTierRef = React.useRef(null);
+  const [outsideBounds, setOutsideBounds] = useState(false);
+  const boundaryRef = React.useRef(null);
 
   const favsRef = React.useRef(favs);
 
@@ -669,7 +671,27 @@ export default function ZghartaTourismApp() {
         prevZoomTierRef.current = newTier;
         markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom, shouldAnimate));
       });
-      mapInstanceRef.current.addListener('idle', () => updateCards());
+      mapInstanceRef.current.addListener('idle', () => {
+        updateCards();
+        const c = mapInstanceRef.current.getCenter();
+        if (c) setOutsideBounds(c.lat() < 34.24 || c.lat() > 34.42 || c.lng() < 35.82 || c.lng() > 36.00);
+      });
+      // Zgharta caza boundary polygon
+      if (!boundaryRef.current) {
+        boundaryRef.current = new window.google.maps.Polygon({
+          paths: [
+            {lat: 34.42, lng: 35.83}, {lat: 34.43, lng: 35.88}, {lat: 34.42, lng: 35.93},
+            {lat: 34.41, lng: 35.97}, {lat: 34.39, lng: 35.99}, {lat: 34.36, lng: 36.00},
+            {lat: 34.33, lng: 35.99}, {lat: 34.30, lng: 35.97}, {lat: 34.28, lng: 35.94},
+            {lat: 34.27, lng: 35.90}, {lat: 34.26, lng: 35.86}, {lat: 34.27, lng: 35.83},
+            {lat: 34.29, lng: 35.82}, {lat: 34.32, lng: 35.82}, {lat: 34.35, lng: 35.82},
+            {lat: 34.38, lng: 35.83}, {lat: 34.40, lng: 35.83}, {lat: 34.42, lng: 35.83},
+          ],
+          strokeColor: '#10b981', strokeOpacity: 0.5, strokeWeight: 2.5,
+          fillColor: '#10b981', fillOpacity: 0.03,
+          clickable: false, map: mapInstanceRef.current,
+        });
+      }
     }
 
     const updateCards = () => {
@@ -929,6 +951,21 @@ export default function ZghartaTourismApp() {
       transition: 'bottom 0.3s ease',
     }}>
       <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
+    </button>
+
+    {/* Back to Zgharta pill */}
+    <button onClick={() => { mapInstanceRef.current?.panTo({ lat: 34.3955, lng: 35.8945 }); mapInstanceRef.current?.setZoom(13); }} style={{
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 230 : 76, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
+      height: 36, padding: '0 14px', borderRadius: 18, border: '1px solid rgba(255,255,255,0.3)',
+      background: 'rgba(255,255,255,0.7)',
+      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 6,
+      opacity: outsideBounds ? 1 : 0, pointerEvents: outsideBounds ? 'auto' : 'none',
+      transition: 'bottom 0.3s ease, opacity 0.3s ease',
+    }}>
+      <Compass style={{ width: 16, height: 16, color: '#10b981' }} />
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{t('Zgharta Caza', 'زغرتا')}</span>
     </button>
 
     {/* Card toggle button */}
