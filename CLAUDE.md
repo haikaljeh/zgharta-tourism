@@ -173,9 +173,10 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
-- **Canonical category order:** Restaurant → Shop → Heritage → Nature → Hotel → Religious → Cafe — used consistently across Explore, Guide, Map, and Saved screens. GuideScreen and MapScreen omit Shop (not applicable). FavsScreen uses a `catOrder` array to sort dynamic groups.
+- **Canonical category order:** Restaurant → Cafe → Shop → Heritage → Nature → Hotel → Religious — used consistently across all screens (Explore, Guide, Map, Saved). All screens show all 7 categories. FavsScreen uses a `catOrder` array to sort dynamic groups.
 - Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to icons, hex colors, and background colors
 - **Religious icon:** Custom `StickCross` SVG component (thin stick cross) used everywhere instead of lucide `Cross`
+- **Category labels:** All screens use category ID as label (e.g. "religious", "heritage") — not aliases like "Churches" or "Landmarks". GuideScreen uses short labels: "Dining" (restaurant), "Stay" (hotel)
 - Map marker colors in separate `markerColors` object
 - RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` on all screens and modals, conditional `textAlign`/`flexDirection`, and `[isRTL ? 'right' : 'left']` for absolute positioning (back buttons, badges, dropdowns, close buttons)
 
@@ -203,13 +204,13 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **`favsRef`** — Ref tracking latest `favs` state; used by the marker creation effect so `favs` is not in its dependency array. A separate lightweight effect updates marker visuals in-place when favs change (no marker destruction/recreation, no zoom disruption).
 - **`React.useMemo`** used for expensive computations: `allLocations`, `filteredLocations`, `villages` (map), `allItems`, `exploreVillages`, `filteredItems` (ExploreScreen), `fEvents`, `upcomingCount` (EventsScreen), `allSaved`, `favsGroups` (favs)
 - **useEffect cleanup:** Map rendering effect clears markers on unmount; script loader clears recursive setTimeout
-- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions
+- **Refs:** `visibleCardsRef` keeps latest visible cards accessible inside stale closures; `selectedMarkerRef` tracks selection synchronously for `updateCards`; `carouselRef` for auto-scroll on marker tap; `geoMarkerRef` for blue dot overlay; `prevZoomTierRef` for staggered marker animation on zoom tier transitions; `boundaryRef` for Zgharta caza boundary polygon
 
 ### Map Implementation
 - Google Maps loaded dynamically via script tag injection (no `mapId` — raster mode for local JSON styles)
 - **POI hiding:** Local `styles` array hides all Google default POIs (`poi`, `poi.business`) and transit stations; only custom markers visible
 - **3-tier marker system** using custom `HtmlMarker` class extending `google.maps.OverlayView`:
-  - **Zoom ≤13:** 10px colored dots with white border; favorited markers show ♥ heart (`makeDotEl`)
+  - **Zoom ≤13:** 10px colored dots with white border; favorited markers show 20px filled SVG heart with white stroke outline and drop shadow (`makeDotEl`)
   - **Zoom 14-16:** 28px white circle with 2D category SVG icon inside (`makeIconEl`)
   - **Zoom 17+:** Icon + truncated name label (max 20 chars) in category color with white text-shadow halo (`makeLabeledEl`)
   - Content swapped via `updateContent(zoom, animate)` on `zoom_changed` event
@@ -219,25 +220,27 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — defined at parent scope
 - **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
 - **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
-- **Category filter chips:** Horizontal scrollable row of pill-shaped chips (Restaurants, Hotels, Churches, Nature, Landmarks, Cafés) with icons, bilingual labels, multi-select, color-coded active states
+- **Category filter chips:** Horizontal scrollable row of pill-shaped chips with icons, bilingual labels, multi-select, color-coded active states, visible outline borders on inactive chips (fontWeight 700)
 - **Swipeable card carousel:** Horizontal scroll-snap carousel of image-background cards at bottom of map (`bottom: 56px`). Cards show top 8 places/businesses in viewport (updated via `idle` listener). Selected marker always injected into card list. Cards persist when viewport is empty (only updates when new results > 0). Full-bleed images with dark gradient overlay, frosted heart buttons, white text.
 - **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
 - **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
-- **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, or marker tap.
+- **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, marker tap, or "Back to Zgharta" button.
+- **Back to Zgharta pill:** Floating frosted glass pill (Compass icon + "Zgharta Caza"/"زغرتا") appears when map center drifts outside the caza bounding box. Horizontally centered between locate-me and carousel toggle buttons, same `bottom` position and transition. On tap: pans to default center at zoom 13. Fades in/out via opacity transition, tracked by `outsideBounds` state updated on `idle` event.
+- **Zgharta caza boundary polygon:** `google.maps.Polygon` drawn once on map init, stored in `boundaryRef`. Approximate district boundary with emerald green stroke (0.5 opacity, 2.5 weight) and barely visible fill (0.03 opacity). `clickable: false`. Coordinates are approximate and should be refined later.
 - **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
 - **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
 - **Google attribution:** Repositioned above nav via CSS (`.gm-style > div:last-child { bottom: 56px }`)
 - **Default center:** Zgharta city (`34.3955, 35.8945`) at zoom 15 (street-level)
 - **Geolocation on mount:** Requests user position; only pans if within Zgharta caza bounding box (`lat: 34.24–34.42, lng: 35.82–36.00`), otherwise silently keeps default
-- **No fitBounds ever** — map never zooms out to fit markers; stays where the user left it
+- **No fitBounds ever** — map never zooms out to fit markers; stays where the user left it. Only the "Back to Zgharta" button programmatically changes view.
 - **Loading/error states:** Loader2 spinner while Google Maps script loads; error screen with reload button if script fails
 
 ### Navigation
 - Tab-based via `tab` state — no React Router
 - Bottom nav is `position: fixed` with 5 tabs, compact sizing (icons 20px, labels 10px)
-- **Active tab indicator:** Green pill background (`rgba(16,185,129,0.2)`) behind active icon (22px, strokeWidth 2.5), darker green (`#059669`), bold 700 weight label, smooth transitions. No top pill bar.
+- **Active tab indicator:** Green pill background (`rgba(16,185,129,0.35)`) behind active icon (22px, strokeWidth 2.5), darker green (`#047857`), bold 700 weight label, smooth transitions. No top pill bar. All labels bold (inactive 600, active 700), inactive color `#6b7280`.
 - **Conditional nav styling:** Semi-transparent with blur on map tab (`rgba(255,255,255,0.12)`, `blur(4px)`), solid white on other tabs
 - Modals are full-screen overlays (`position: fixed, inset: 0, zIndex: 50`)
 - Max width: 448px centered (mobile-first design)
