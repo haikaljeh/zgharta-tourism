@@ -893,7 +893,7 @@ export default function ZghartaTourismApp() {
         ].map(c => {
           const active = mapFilter.includes(c.id);
           const Icon = c.icon;
-          return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'rgba(255,255,255,0.45)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
+          return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '1.5px solid rgba(0,0,0,0.12)', background: active ? c.color : 'rgba(255,255,255,0.7)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#374151', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
             <Icon style={{ width: 13, height: 13 }} />
             {t(c.en, c.ar)}
           </button>;
