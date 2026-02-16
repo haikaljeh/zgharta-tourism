@@ -455,6 +455,8 @@ export default function ZghartaTourismApp() {
     const setVillageFilter = setMapVillageFilter;
     const [showVillageDrop, setShowVillageDrop] = useState(false);
     const geolocDone = React.useRef(false);
+    const prevZoomTierRef = React.useRef(null);
+    const prevFiltersRef = React.useRef({ mapFilter: [], villageFilter: [] });
 
     const allLocations = React.useMemo(() => [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))].filter(l => l.coordinates?.lat && l.coordinates?.lng), [places, businesses]);
     const filteredLocations = React.useMemo(() => allLocations.filter(l => (mapFilter.length === 0 || mapFilter.includes(l.category)) && (villageFilter.length === 0 || villageFilter.includes(l.village))), [allLocations, mapFilter, villageFilter]);
@@ -574,7 +576,11 @@ export default function ZghartaTourismApp() {
         mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
-          markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom));
+          const newTier = getZoomTier(zoom);
+          const oldTier = prevZoomTierRef.current;
+          const shouldAnimate = oldTier !== null && newTier > oldTier;
+          prevZoomTierRef.current = newTier;
+          markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom, shouldAnimate));
         });
         mapInstanceRef.current.addListener('idle', () => updateCards());
       }
@@ -610,17 +616,21 @@ export default function ZghartaTourismApp() {
       const zoom = mapInstanceRef.current.getZoom();
 
       // Custom overlay class for HTML markers
+      const getZoomTier = (z) => z >= 17 ? 2 : z >= 14 ? 1 : 0;
+
       class HtmlMarker extends window.google.maps.OverlayView {
-        constructor(position, elements, onClick) {
+        constructor(position, elements, onClick, isFav, index) {
           super();
           this.position = position;
-          this.elements = elements; // { elDot, elIcon, elLabeled }
+          this.elements = elements;
           this.onClick = onClick;
+          this.isFav = isFav;
+          this.index = index;
           this.div = null;
         }
         onAdd() {
           this.div = document.createElement('div');
-          this.div.style.cssText = 'position:absolute;cursor:pointer;';
+          this.div.style.cssText = `position:absolute;cursor:pointer;z-index:${this.isFav ? 10 : 1};`;
           const z = this.getMap()?.getZoom() || 15;
           this.div.appendChild(z >= 17 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
           this.div.addEventListener('click', (e) => { e.stopPropagation(); this.onClick(); });
@@ -634,16 +644,22 @@ export default function ZghartaTourismApp() {
           if (pos) { this.div.style.left = pos.x + 'px'; this.div.style.top = pos.y + 'px'; this.div.style.transform = 'translate(-50%, -50%)'; }
         }
         onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
-        updateContent(zoom) {
+        updateContent(zoom, animate) {
           if (!this.div) return;
           if (zoom < 12) { this.div.style.display = 'none'; return; }
           this.div.style.display = '';
           const el = zoom >= 17 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
-          if (this.div.firstChild !== el) { this.div.innerHTML = ''; this.div.appendChild(el); }
+          if (this.div.firstChild !== el) {
+            this.div.innerHTML = '';
+            if (animate && zoom >= 14) {
+              el.style.animation = `markerPop 0.3s ease-out ${Math.min(this.index * 30, 500)}ms both`;
+            }
+            this.div.appendChild(el);
+          }
         }
       }
 
-      filteredLocations.forEach(loc => {
+      filteredLocations.forEach((loc, i) => {
         const color = markerColors[loc.category] || '#10b981';
         const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
         const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
@@ -657,15 +673,19 @@ export default function ZghartaTourismApp() {
         const overlay = new HtmlMarker(
           { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
           elements,
-          () => { selectedMarkerRef.current = loc; setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
+          () => { selectedMarkerRef.current = loc; setSelectedMarker(loc); setCardsVisible(true); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); },
+          locFav,
+          i
         );
         overlay.setMap(mapInstanceRef.current);
 
         markersRef.current.push({ overlay, elements });
       });
 
-      // Fit bounds when filters are active
-      if (filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
+      // Fit bounds only when filters actually change (not on favs change)
+      const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify({ mapFilter, villageFilter });
+      prevFiltersRef.current = { mapFilter: [...mapFilter], villageFilter: [...villageFilter] };
+      if (filtersChanged && filteredLocations.length > 0 && (mapFilter.length > 0 || villageFilter.length > 0)) {
         const bounds = new window.google.maps.LatLngBounds();
         filteredLocations.forEach(loc => bounds.extend({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }));
         if (filteredLocations.length > 1) mapInstanceRef.current.fitBounds(bounds, 60);
@@ -848,7 +868,7 @@ export default function ZghartaTourismApp() {
           {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
         </div>)}
       </div>}
-      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
+      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
     </div>;
   };
 
