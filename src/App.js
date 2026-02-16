@@ -700,7 +700,7 @@ export default function ZghartaTourismApp() {
               }
               if (paths.length > 0 && mapInstanceRef.current) {
                 boundaryRef.current = new window.google.maps.Polygon({
-                  paths, strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 3,
+                  paths, strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 4,
                   fillColor: '#10b981', fillOpacity: 0.05, clickable: false, zIndex: 0,
                   map: mapInstanceRef.current,
                 });
