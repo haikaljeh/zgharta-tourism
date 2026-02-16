@@ -480,29 +480,40 @@ export default function ZghartaTourismApp() {
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
     };
 
-    const makeDotEl = (color) => {
+    const makeDotEl = (color, fav) => {
       const el = document.createElement('div');
-      el.style.cssText = `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
+      el.style.cssText = fav
+        ? `width:12px;height:12px;background:${color};border:2px solid #f59e0b;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`
+        : `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
       return el;
     };
 
-    const makeIconEl = (cat, color) => {
+    const makeIconEl = (cat, color, fav) => {
       const el = document.createElement('div');
-      el.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
+      el.style.cssText = fav
+        ? 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #f59e0b;box-shadow:0 0 6px rgba(245,158,11,0.4);'
+        : 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
       el.innerHTML = makeCatSVG(cat, color, 16);
       return el;
     };
 
-    const makeLabeledEl = (cat, color, name) => {
+    const makeLabeledEl = (cat, color, name, fav) => {
       const el = document.createElement('div');
       el.style.cssText = 'display:flex;align-items:center;gap:4px;';
       const iconWrap = document.createElement('div');
-      iconWrap.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;';
+      iconWrap.style.cssText = fav
+        ? 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #f59e0b;box-shadow:0 0 6px rgba(245,158,11,0.4);flex-shrink:0;'
+        : 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;';
       iconWrap.innerHTML = makeCatSVG(cat, color, 16);
       const label = document.createElement('div');
-      const truncated = name.length > 20 ? name.slice(0, 20) + '…' : name;
+      const displayName = fav ? '♥ ' + name : name;
+      const truncated = displayName.length > 22 ? displayName.slice(0, 22) + '…' : displayName;
       label.style.cssText = `font-size:12px;font-weight:600;color:${color};white-space:nowrap;text-shadow:0 0 3px white,-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;`;
-      label.textContent = truncated;
+      if (fav) {
+        label.innerHTML = `<span style="color:#f59e0b">♥</span> ${truncated.slice(2)}`;
+      } else {
+        label.textContent = truncated;
+      }
       el.appendChild(iconWrap);
       el.appendChild(label);
       return el;
@@ -622,11 +633,12 @@ export default function ZghartaTourismApp() {
       filteredLocations.forEach(loc => {
         const color = markerColors[loc.category] || '#10b981';
         const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
+        const locFav = loc.type === 'place' ? favs.places.includes(loc.id) : favs.businesses.includes(loc.id);
 
         const elements = {
-          elDot: makeDotEl(color),
-          elIcon: makeIconEl(loc.category, color),
-          elLabeled: makeLabeledEl(loc.category, color, locName),
+          elDot: makeDotEl(color, locFav),
+          elIcon: makeIconEl(loc.category, color, locFav),
+          elLabeled: makeLabeledEl(loc.category, color, locName, locFav),
         };
 
         const overlay = new HtmlMarker(
@@ -666,7 +678,7 @@ export default function ZghartaTourismApp() {
         markersRef.current = [];
         if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
       };
-    }, [mapLoaded, filteredLocations]);
+    }, [mapLoaded, filteredLocations, favs]);
 
     useEffect(() => {
       if (!selectedMarker || !carouselRef.current) return;
