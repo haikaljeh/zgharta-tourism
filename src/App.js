@@ -581,8 +581,8 @@ export default function ZghartaTourismApp() {
     const el = document.createElement('div');
     if (fav) {
       const muted = mutedCatColors[cat] || color;
-      el.style.cssText = `width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:${muted};font-size:14px;line-height:1;`;
-      el.textContent = '♥';
+      el.style.cssText = `width:22px;height:22px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));`;
+      el.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="${muted}" stroke="white" stroke-width="1.5"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
     } else {
       el.style.cssText = `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
     }
