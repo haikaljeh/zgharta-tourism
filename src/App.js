@@ -761,7 +761,7 @@ export default function ZghartaTourismApp() {
 
       {/* Locate me button */}
       <button onClick={handleLocateMe} style={{
-        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 240 : 56, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 248 : 72, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -774,7 +774,7 @@ export default function ZghartaTourismApp() {
 
       {/* Card toggle button */}
       {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
-        position: 'absolute', bottom: cardsVisible ? 240 : 56, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+        position: 'absolute', bottom: cardsVisible ? 248 : 72, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -1012,6 +1012,6 @@ export default function ZghartaTourismApp() {
     {selPlace && <PlaceModal place={selPlace} onClose={() => setSelPlace(null)} />}
     {selBiz && <BizModal business={selBiz} onClose={() => setSelBiz(null)} />}
     {selEvent && <EventModal event={selEvent} onClose={() => setSelEvent(null)} />}
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, ...(tab === 'map' ? { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderTop: 'none' } : { background: 'white', borderTop: '1px solid #f3f4f6' }), maxWidth: 448, margin: '0 auto' }}><div style={{ display: 'flex', justifyContent: 'space-around', padding: 4 }}>{[{ id: 'map', icon: Map, l: t('Discover', 'اكتشف') }, { id: 'explore', icon: Compass, l: t('Explore', 'استكشف') }, { id: 'events', icon: Calendar, l: t('Events', 'فعاليات') }, { id: 'guide', icon: Info, l: t('Guide', 'دليل') }, { id: 'favorites', icon: Heart, l: t('Saved', 'محفوظ') }].map(navItem => <button key={navItem.id} onClick={() => { setTab(navItem.id); setSelPlace(null); setSelBiz(null); setSelEvent(null); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 12, color: tab === navItem.id ? '#10b981' : '#9ca3af', transition: 'color 0.2s ease' }}><div style={{ background: tab === navItem.id ? 'rgba(16,185,129,0.12)' : 'transparent', borderRadius: 12, padding: '4px 12px', transition: 'background 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><navItem.icon style={{ width: tab === navItem.id ? 22 : 20, height: tab === navItem.id ? 22 : 20, transition: 'all 0.2s ease', fill: tab === navItem.id && navItem.id === 'favorites' ? 'currentColor' : 'none' }} /></div><span style={{ fontSize: 10, fontWeight: tab === navItem.id ? 600 : 400, transition: 'all 0.2s ease' }}>{navItem.l}</span></button>)}</div></nav>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, ...(tab === 'map' ? { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderTop: 'none' } : { background: 'white', borderTop: '1px solid #f3f4f6' }), maxWidth: 448, margin: '0 auto' }}><div style={{ display: 'flex', justifyContent: 'space-around', padding: 4 }}>{[{ id: 'map', icon: Map, l: t('Discover', 'اكتشف') }, { id: 'explore', icon: Compass, l: t('Explore', 'استكشف') }, { id: 'events', icon: Calendar, l: t('Events', 'فعاليات') }, { id: 'guide', icon: Info, l: t('Guide', 'دليل') }, { id: 'favorites', icon: Heart, l: t('Saved', 'محفوظ') }].map(navItem => <button key={navItem.id} onClick={() => { setTab(navItem.id); setSelPlace(null); setSelBiz(null); setSelEvent(null); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 12, color: tab === navItem.id ? '#059669' : '#9ca3af', transition: 'color 0.2s ease' }}><div style={{ background: tab === navItem.id ? 'rgba(16,185,129,0.2)' : 'transparent', borderRadius: 12, padding: '5px 14px', transition: 'background 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><navItem.icon style={{ width: tab === navItem.id ? 22 : 20, height: tab === navItem.id ? 22 : 20, strokeWidth: tab === navItem.id ? 2.5 : 2, transition: 'all 0.2s ease', fill: tab === navItem.id && navItem.id === 'favorites' ? 'currentColor' : 'none' }} /></div><span style={{ fontSize: 10, fontWeight: tab === navItem.id ? 700 : 400, transition: 'all 0.2s ease' }}>{navItem.l}</span></button>)}</div></nav>
   </div>;
 }
