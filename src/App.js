@@ -572,8 +572,11 @@ export default function ZghartaTourismApp() {
             cards = [sel, ...cards.slice(0, 7)];
           }
         }
-        setVisibleCards(cards);
-        visibleCardsRef.current = cards;
+        // Only update if we have results — keep last cards when viewport is empty
+        if (cards.length > 0) {
+          setVisibleCards(cards);
+          visibleCardsRef.current = cards;
+        }
       };
 
       // Clear old markers
@@ -774,7 +777,7 @@ export default function ZghartaTourismApp() {
 
       {/* Locate me button */}
       <button onClick={handleLocateMe} style={{
-        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 248 : 72, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+        position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 224 : 64, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -787,7 +790,7 @@ export default function ZghartaTourismApp() {
 
       {/* Card toggle button */}
       {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
-        position: 'absolute', bottom: cardsVisible ? 248 : 72, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+        position: 'absolute', bottom: cardsVisible ? 224 : 64, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -801,7 +804,7 @@ export default function ZghartaTourismApp() {
       </button>}
 
       {/* Card carousel */}
-      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 68px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
+      {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 56, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 56px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
         {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
           <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
@@ -820,7 +823,7 @@ export default function ZghartaTourismApp() {
           {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
         </div>)}
       </div>}
-      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } }'}</style>
+      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
     </div>;
   };
 
