@@ -545,6 +545,7 @@ export default function ZghartaTourismApp() {
   const prevZoomTierRef = React.useRef(null);
   const [outsideBounds, setOutsideBounds] = useState(false);
   const boundaryRef = React.useRef(null);
+  const cazaBoundsRef = React.useRef({ minLat: 34.26, maxLat: 34.43, minLng: 35.83, maxLng: 36.01 });
 
   const favsRef = React.useRef(favs);
 
@@ -674,34 +675,45 @@ export default function ZghartaTourismApp() {
       mapInstanceRef.current.addListener('idle', () => {
         updateCards();
         const c = mapInstanceRef.current.getCenter();
-        if (c) setOutsideBounds(c.lat() < 34.260 || c.lat() > 34.425 || c.lng() < 35.830 || c.lng() > 36.015);
+        if (c) {
+          const b = cazaBoundsRef.current;
+          setOutsideBounds(c.lat() < b.minLat || c.lat() > b.maxLat || c.lng() < b.minLng || c.lng() > b.maxLng);
+        }
       });
-      // Zgharta caza boundary polygon
+      // Fetch Zgharta caza boundary from OpenStreetMap Nominatim
       if (!boundaryRef.current) {
-        boundaryRef.current = new window.google.maps.Polygon({
-          paths: [
-            // Western lowlands (Koura/Tripoli border)
-            {lat: 34.275, lng: 35.842}, {lat: 34.285, lng: 35.835}, {lat: 34.310, lng: 35.835},
-            {lat: 34.330, lng: 35.838}, {lat: 34.350, lng: 35.840}, {lat: 34.370, lng: 35.838},
-            {lat: 34.385, lng: 35.840}, {lat: 34.400, lng: 35.843}, {lat: 34.413, lng: 35.848},
-            // Northern edge (Miniyeh-Danniyeh/Akkar border)
-            {lat: 34.418, lng: 35.860}, {lat: 34.420, lng: 35.880}, {lat: 34.418, lng: 35.905},
-            {lat: 34.415, lng: 35.925}, {lat: 34.412, lng: 35.940}, {lat: 34.408, lng: 35.955},
-            {lat: 34.400, lng: 35.968},
-            // Eastern mountains (Qadisha Valley / Horsh Ehden)
-            {lat: 34.388, lng: 35.978}, {lat: 34.375, lng: 35.988}, {lat: 34.355, lng: 35.998},
-            {lat: 34.340, lng: 36.005}, {lat: 34.325, lng: 36.008}, {lat: 34.310, lng: 36.005},
-            {lat: 34.298, lng: 35.995}, {lat: 34.288, lng: 35.980},
-            // Southern mountains (Bsharri/Batroun border)
-            {lat: 34.280, lng: 35.960}, {lat: 34.275, lng: 35.940}, {lat: 34.270, lng: 35.920},
-            {lat: 34.268, lng: 35.900},
-            // Southern lowlands (Koura/Batroun border)
-            {lat: 34.268, lng: 35.880}, {lat: 34.270, lng: 35.860}, {lat: 34.275, lng: 35.842},
-          ],
-          strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 3,
-          fillColor: '#10b981', fillOpacity: 0.05,
-          clickable: false, map: mapInstanceRef.current,
-        });
+        (async () => {
+          try {
+            const res = await fetch(
+              'https://nominatim.openstreetmap.org/search?q=Zgharta+District+Lebanon&format=json&polygon_geojson=1&limit=1',
+              { headers: { 'User-Agent': 'ZghartaTourismApp/1.0' } }
+            );
+            const data = await res.json();
+            if (data?.[0]?.geojson) {
+              const geo = data[0].geojson;
+              let paths = [];
+              if (geo.type === 'Polygon') {
+                paths = geo.coordinates[0].map(c => ({ lat: c[1], lng: c[0] }));
+              } else if (geo.type === 'MultiPolygon') {
+                const largest = geo.coordinates.reduce((max, poly) => poly[0].length > max[0].length ? poly : max);
+                paths = largest[0].map(c => ({ lat: c[1], lng: c[0] }));
+              }
+              if (paths.length > 0 && mapInstanceRef.current) {
+                boundaryRef.current = new window.google.maps.Polygon({
+                  paths, strokeColor: '#10b981', strokeOpacity: 0.75, strokeWeight: 3,
+                  fillColor: '#10b981', fillOpacity: 0.05, clickable: false, zIndex: 0,
+                  map: mapInstanceRef.current,
+                });
+                cazaBoundsRef.current = paths.reduce((acc, p) => ({
+                  minLat: Math.min(acc.minLat, p.lat), maxLat: Math.max(acc.maxLat, p.lat),
+                  minLng: Math.min(acc.minLng, p.lng), maxLng: Math.max(acc.maxLng, p.lng),
+                }), { minLat: 90, maxLat: -90, minLng: 180, maxLng: -180 });
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch Zgharta boundary, using fallback');
+          }
+        })();
       }
     }
 
@@ -810,7 +822,8 @@ export default function ZghartaTourismApp() {
       geolocDone.current = true;
       navigator.geolocation.getCurrentPosition((pos) => {
         const { latitude, longitude } = pos.coords;
-        if (latitude >= 34.260 && latitude <= 34.425 && longitude >= 35.830 && longitude <= 36.015) {
+        const gb = cazaBoundsRef.current;
+        if (latitude >= gb.minLat && latitude <= gb.maxLat && longitude >= gb.minLng && longitude <= gb.maxLng) {
           mapInstanceRef.current.panTo({ lat: latitude, lng: longitude });
           mapInstanceRef.current.setZoom(15);
         }
