@@ -456,7 +456,50 @@ export default function ZghartaTourismApp() {
     const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
     const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
-    const catEmojis = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', cafe: '☕', shop: '🛍' };
+
+    const catIconPaths = {
+      religious: { vb: '0 0 16 16', d: '<line x1="8" y1="1" x2="8" y2="15"/><line x1="3" y1="5" x2="13" y2="5"/>' },
+      nature: { vb: '0 0 24 24', d: '<path d="M17 14l3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14l-3-3.3a1 1 0 0 1 .7-1.7h4.6L7 6.3a1 1 0 0 1 .7-1.7h8.6a1 1 0 0 1 .7 1.7L15 9h4.6a1 1 0 0 1 .7 1.7L17 14z"/><line x1="12" y1="22" x2="12" y2="18"/>' },
+      heritage: { vb: '0 0 24 24', d: '<polyline points="4,11 12,4 20,11"/><line x1="4" y1="20" x2="4" y2="11"/><line x1="20" y1="20" x2="20" y2="11"/><line x1="9" y1="20" x2="9" y2="14"/><line x1="15" y1="20" x2="15" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>' },
+      restaurant: { vb: '0 0 24 24', d: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><line x1="7" y1="2" x2="7" y2="22"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>' },
+      hotel: { vb: '0 0 24 24', d: '<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><line x1="12" y1="4" x2="12" y2="10"/><line x1="2" y1="18" x2="22" y2="18"/>' },
+      cafe: { vb: '0 0 24 24', d: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/>' },
+      shop: { vb: '0 0 24 24', d: '<path d="M6 2L3 7v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V7l-3-5z"/><line x1="3" y1="9" x2="3" y2="22"/><line x1="21" y1="9" x2="21" y2="22"/><line x1="3" y1="22" x2="21" y2="22"/><path d="M9 22V12h6v10"/>' },
+    };
+
+    const makeCatSVG = (cat, color, size) => {
+      const icon = catIconPaths[cat];
+      if (!icon) return '';
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
+    };
+
+    const makeDotEl = (color) => {
+      const el = document.createElement('div');
+      el.style.cssText = `width:10px;height:10px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
+      return el;
+    };
+
+    const makeIconEl = (cat, color) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
+      el.innerHTML = makeCatSVG(cat, color, 16);
+      return el;
+    };
+
+    const makeLabeledEl = (cat, color, name) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const iconWrap = document.createElement('div');
+      iconWrap.style.cssText = 'width:28px;height:28px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.25);flex-shrink:0;';
+      iconWrap.innerHTML = makeCatSVG(cat, color, 16);
+      const label = document.createElement('div');
+      const truncated = name.length > 20 ? name.slice(0, 20) + '…' : name;
+      label.style.cssText = `font-size:12px;font-weight:600;color:${color};white-space:nowrap;text-shadow:0 0 3px white,-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;`;
+      label.textContent = truncated;
+      el.appendChild(iconWrap);
+      el.appendChild(label);
+      return el;
+    };
 
 
     useEffect(() => {
@@ -499,12 +542,12 @@ export default function ZghartaTourismApp() {
         mapInstanceRef.current.addListener('heading_changed', () => setMapHeading(mapInstanceRef.current.getHeading() || 0));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
-          markersRef.current.forEach(({ marker, pinDot, pinFull, pinLabeled }) => {
+          markersRef.current.forEach(({ marker, elDot, elIcon, elLabeled }) => {
             if (zoom < 12) {
               marker.map = null;
             } else {
               marker.map = mapInstanceRef.current;
-              marker.content = zoom >= 15 ? pinLabeled : zoom >= 14 ? pinFull : pinDot;
+              marker.content = zoom >= 16 ? elLabeled : zoom >= 14 ? elIcon : elDot;
             }
           });
         });
@@ -533,39 +576,16 @@ export default function ZghartaTourismApp() {
 
       filteredLocations.forEach(loc => {
         const color = markerColors[loc.category] || '#10b981';
-        const emoji = catEmojis[loc.category] || '📍';
         const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
 
-        const pinDot = new window.google.maps.marker.PinElement({
-          scale: 0.6,
-          background: color,
-          borderColor: 'white',
-          glyphColor: 'white',
-          glyph: '',
-        });
-
-        const pinFull = new window.google.maps.marker.PinElement({
-          scale: 1.0,
-          background: color,
-          borderColor: 'white',
-          glyphColor: 'white',
-        });
-
-        // Labeled marker: dot + emoji name label
-        const labeledEl = document.createElement('div');
-        labeledEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
-        const labelDot = document.createElement('div');
-        labelDot.style.cssText = `width:12px;height:12px;background:${color};border:2px solid white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);`;
-        const labelText = document.createElement('div');
-        labelText.style.cssText = `font-size:11px;font-weight:600;color:${color};white-space:nowrap;text-shadow:-1px -1px 0 white,1px -1px 0 white,-1px 1px 0 white,1px 1px 0 white,0 -1px 0 white,0 1px 0 white,-1px 0 0 white,1px 0 0 white;margin-top:2px;`;
-        labelText.textContent = `${emoji} ${locName}`;
-        labeledEl.appendChild(labelDot);
-        labeledEl.appendChild(labelText);
+        const elDot = makeDotEl(color);
+        const elIcon = makeIconEl(loc.category, color);
+        const elLabeled = makeLabeledEl(loc.category, color, locName);
 
         const marker = new window.google.maps.marker.AdvancedMarkerElement({
           map: zoom >= 12 ? mapInstanceRef.current : null,
           position: { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
-          content: zoom >= 15 ? labeledEl : zoom >= 14 ? pinFull.element : pinDot.element,
+          content: zoom >= 16 ? elLabeled : zoom >= 14 ? elIcon : elDot,
           collisionBehavior: window.google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
         });
 
@@ -574,7 +594,7 @@ export default function ZghartaTourismApp() {
           mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng });
         });
 
-        markersRef.current.push({ marker, pinDot: pinDot.element, pinFull: pinFull.element, pinLabeled: labeledEl });
+        markersRef.current.push({ marker, elDot, elIcon, elLabeled });
       });
 
       // Fit bounds when filters are active
