@@ -441,6 +441,8 @@ export default function ZghartaTourismApp() {
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(false);
     const [mapFilter, setMapFilter] = useState([]);
+    const [geoActive, setGeoActive] = useState(false);
+    const geoMarkerRef = React.useRef(null);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
     const [showVillageDrop, setShowVillageDrop] = useState(false);
@@ -486,10 +488,10 @@ export default function ZghartaTourismApp() {
           mapId: 'zgharta-tourism-map',
           gestureHandling: 'greedy',
           disableDefaultUI: true,
-          zoomControl: true,
-          zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_TOP },
+          zoomControl: false,
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
+        mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
           markersRef.current.forEach(({ marker, pinDot, pinFull }) => {
@@ -582,6 +584,7 @@ export default function ZghartaTourismApp() {
       return () => {
         markersRef.current.forEach(({ marker }) => { marker.map = null; });
         markersRef.current = [];
+        if (geoMarkerRef.current) geoMarkerRef.current.map = null;
       };
     }, [mapLoaded, filteredLocations]);
 
@@ -592,6 +595,23 @@ export default function ZghartaTourismApp() {
         carouselRef.current.children[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }, [selectedMarker]);
+
+    const handleLocateMe = () => {
+      if (!navigator.geolocation || !mapInstanceRef.current) return;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        const position = { lat: latitude, lng: longitude };
+        mapInstanceRef.current.panTo(position);
+        mapInstanceRef.current.setZoom(16);
+        setGeoActive(true);
+        if (geoMarkerRef.current) geoMarkerRef.current.map = null;
+        const dot = document.createElement('div');
+        dot.innerHTML = '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);animation:geoPulse 2s infinite"></div>';
+        geoMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+          map: mapInstanceRef.current, position, content: dot, zIndex: 999
+        });
+      }, () => {});
+    };
 
     return <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
       {GOOGLE_MAPS_KEY ? (
@@ -607,17 +627,17 @@ export default function ZghartaTourismApp() {
       {/* Top bar: search + village filter + category chips */}
       <div style={{ position: 'absolute', top: 6, left: 6, right: 6, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Row 1: Search bar + village + lang */}
-        <div style={{ background: 'white', borderRadius: 12, padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ background: 'rgba(255,255,255,0.45)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 12, padding: '8px 10px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Search style={{ width: 14, height: 14, color: '#9ca3af', flexShrink: 0 }} />
           <input type="text" placeholder={t('Search...', 'بحث...')} style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, background: 'transparent', textAlign: isRTL ? 'right' : 'left' }} onChange={e => { const v = e.target.value.toLowerCase(); if (v.length > 2) { const match = allLocations.find(l => l.name.toLowerCase().includes(v) || (l.nameAr && l.nameAr.includes(v))); if (match) { setSelectedMarker(match); mapInstanceRef.current?.panTo({ lat: match.coordinates.lat, lng: match.coordinates.lng }); mapInstanceRef.current?.setZoom(16); } } }} />
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? '#1f2937' : '#f3f4f6', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <button onClick={() => { setShowVillageDrop(v => !v); setShowCatDrop(false); }} style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer', background: villageFilter.length > 0 ? 'rgba(31,41,55,0.85)' : 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: villageFilter.length > 0 ? 'white' : '#4b5563', display: 'flex', alignItems: 'center', gap: 3 }}>
               <MapPin style={{ width: 10, height: 10 }} />
               {villageFilter.length === 0 ? t('Village', 'قرية') : villageFilter.length === 1 ? villageFilter[0] : villageFilter.length}
               <ChevronDown style={{ width: 10, height: 10 }} />
             </button>
             {(mapFilter.length > 0 || villageFilter.length > 0) && <button onClick={() => { setMapFilter([]); setVillageFilter([]); setSelectedMarker(null); }} style={{ padding: '4px 6px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: '#fee2e2', color: '#dc2626' }}><X style={{ width: 10, height: 10 }} /></button>}
-            <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: '#f3f4f6', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
+            <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#4b5563' }}>{lang === 'en' ? 'ع' : 'EN'}</button>
           </div>
         </div>
         {/* Row 2: Category chips */}
@@ -632,7 +652,7 @@ export default function ZghartaTourismApp() {
           ].map(c => {
             const active = mapFilter.includes(c.id);
             const Icon = c.icon;
-            return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'white', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
+            return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '2px solid transparent', background: active ? c.color : 'rgba(255,255,255,0.45)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#4b5563', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
               <Icon style={{ width: 13, height: 13 }} />
               {t(c.en, c.ar)}
             </button>;
@@ -657,6 +677,18 @@ export default function ZghartaTourismApp() {
       {/* Click outside to close dropdown */}
       {showVillageDrop && <div onClick={() => setShowVillageDrop(false)} style={{ position: 'absolute', inset: 0, zIndex: 11 }} />}
 
+      {/* Locate me button */}
+      <button onClick={handleLocateMe} style={{
+        position: 'absolute', bottom: 240, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
+        background: geoActive ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.5)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280' }} />
+      </button>
+
       {/* Card carousel */}
       {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
@@ -677,7 +709,7 @@ export default function ZghartaTourismApp() {
           {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
         </div>)}
       </div>}
-      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; }'}</style>
+      <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } }'}</style>
     </div>;
   };
 
@@ -882,6 +914,6 @@ export default function ZghartaTourismApp() {
     {selPlace && <PlaceModal place={selPlace} onClose={() => setSelPlace(null)} />}
     {selBiz && <BizModal business={selBiz} onClose={() => setSelBiz(null)} />}
     {selEvent && <EventModal event={selEvent} onClose={() => setSelEvent(null)} />}
-    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, ...(tab === 'map' ? { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderTop: 'none' } : { background: 'white', borderTop: '1px solid #f3f4f6' }), maxWidth: 448, margin: '0 auto' }}><div style={{ display: 'flex', justifyContent: 'space-around', padding: 4 }}>{[{ id: 'map', icon: Map, l: t('Discover', 'اكتشف') }, { id: 'explore', icon: Compass, l: t('Explore', 'استكشف') }, { id: 'events', icon: Calendar, l: t('Events', 'فعاليات') }, { id: 'guide', icon: Info, l: t('Guide', 'دليل') }, { id: 'favorites', icon: Heart, l: t('Saved', 'محفوظ') }].map(navItem => <button key={navItem.id} onClick={() => { setTab(navItem.id); setSelPlace(null); setSelBiz(null); setSelEvent(null); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 12, color: tab === navItem.id ? '#10b981' : '#9ca3af', position: 'relative' }}>{tab === navItem.id && <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 24, height: 4, borderRadius: 2, background: '#10b981' }} />}<navItem.icon style={{ width: 20, height: 20, marginBottom: 2, marginTop: 2, fill: tab === navItem.id && navItem.id === 'favorites' ? 'currentColor' : 'none' }} /><span style={{ fontSize: 10 }}>{navItem.l}</span></button>)}</div></nav>
+    <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, ...(tab === 'map' ? { background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', borderTop: 'none' } : { background: 'white', borderTop: '1px solid #f3f4f6' }), maxWidth: 448, margin: '0 auto' }}><div style={{ display: 'flex', justifyContent: 'space-around', padding: 4 }}>{[{ id: 'map', icon: Map, l: t('Discover', 'اكتشف') }, { id: 'explore', icon: Compass, l: t('Explore', 'استكشف') }, { id: 'events', icon: Calendar, l: t('Events', 'فعاليات') }, { id: 'guide', icon: Info, l: t('Guide', 'دليل') }, { id: 'favorites', icon: Heart, l: t('Saved', 'محفوظ') }].map(navItem => <button key={navItem.id} onClick={() => { setTab(navItem.id); setSelPlace(null); setSelBiz(null); setSelEvent(null); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 12px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 12, color: tab === navItem.id ? '#10b981' : '#9ca3af', transition: 'color 0.2s ease' }}><div style={{ background: tab === navItem.id ? 'rgba(16,185,129,0.12)' : 'transparent', borderRadius: 12, padding: '4px 12px', transition: 'background 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><navItem.icon style={{ width: tab === navItem.id ? 22 : 20, height: tab === navItem.id ? 22 : 20, transition: 'all 0.2s ease', fill: tab === navItem.id && navItem.id === 'favorites' ? 'currentColor' : 'none' }} /></div><span style={{ fontSize: 10, fontWeight: tab === navItem.id ? 600 : 400, transition: 'all 0.2s ease' }}>{navItem.l}</span></button>)}</div></nav>
   </div>;
 }
