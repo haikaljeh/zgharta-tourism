@@ -138,127 +138,148 @@ export default function ZghartaTourismApp() {
     const totalCount = places.length + businesses.length;
     const nextEvent = events.find(e => new Date(e.date) >= new Date());
 
-    return <div style={{ minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
+    const evDate = nextEvent ? new Date(nextEvent.date) : null;
+    const eventCatColor = nextEvent ? (eventCatStyles[nextEvent.category]?.color || '#059669') : '#059669';
+
+    return <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #fafaf9, #f5f5f0)', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' }}>
       {/* Hero */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
-        <div style={{ background: 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%)', padding: '48px 24px 80px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}><Sun style={{ width: 16, height: 16, color: '#fbbf24' }} /><span style={{ color: '#a7f3d0', fontSize: 13 }}>{t('Your guide to', 'دليلك إلى')}</span></div>
-              <h1 style={{ fontSize: 34, fontWeight: 800, color: 'white', lineHeight: 1.1, marginBottom: 8 }}>{t('Zgharta', 'زغرتا')}<br/>{t('Caza', 'القضاء')}</h1>
-              <p style={{ color: '#6ee7b7', fontSize: 15 }}>{t('North Lebanon', 'شمال لبنان')} · 1500m</p>
+        <div style={{ background: 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #0d9488 100%)', padding: '52px 24px 88px', position: 'relative' }}>
+          {/* Subtle geometric texture overlay */}
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,1) 20px, rgba(255,255,255,1) 21px), repeating-linear-gradient(-45deg, transparent, transparent 20px, rgba(255,255,255,1) 20px, rgba(255,255,255,1) 21px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><Sun style={{ width: 14, height: 14, color: '#fbbf24' }} /><span style={{ color: '#a7f3d0', fontSize: 13, letterSpacing: 0.5 }}>{t('Your guide to', 'دليلك إلى')}</span></div>
+                <h1 style={{ fontSize: 40, fontWeight: 700, color: 'white', lineHeight: 1.05, marginBottom: 10 }}>{t('Zgharta', 'زغرتا')}<br/>{t('Caza', 'القضاء')}</h1>
+                <p style={{ color: '#6ee7b7', fontSize: 15, fontStyle: 'italic', fontWeight: 400, opacity: 0.9 }}>{t('Where mountains meet heritage', 'حيث تلتقي الجبال بالتراث')}</p>
+              </div>
+              <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.12)', borderRadius: 9999, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'white' }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
             </div>
-            <button onClick={() => setLang(l => l === 'en' ? 'ar' : 'en')} style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.15)', borderRadius: 9999, border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'white' }}>{lang === 'en' ? 'عربي' : 'EN'}</button>
-          </div>
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 12 }}>
-            {[{ n: totalCount, l: t('Places', 'أماكن'), Icon: MapPin }, { n: churchCount, l: t('Churches', 'كنائس'), Icon: StickCross }, { n: natureCount, l: t('Nature', 'طبيعة'), Icon: TreePine }, { n: restCount + cafeCount, l: t('Dining', 'مطاعم'), Icon: Utensils }].map((s, i) => <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 14, padding: '12px 8px', textAlign: 'center', backdropFilter: 'blur(8px)' }}>
-              <s.Icon style={{ width: 18, height: 18, color: '#6ee7b7', margin: '0 auto 4px' }} />
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'white' }}>{s.n}</div>
-              <div style={{ fontSize: 10, color: '#a7f3d0' }}>{s.l}</div>
-            </div>)}
+            {/* Stats row — editorial divider style */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+              {[{ n: totalCount, l: t('Places', 'أماكن') }, { n: churchCount, l: t('Churches', 'كنائس') }, { n: natureCount, l: t('Nature', 'طبيعة') }, { n: restCount + cafeCount, l: t('Dining', 'مطاعم') }].map((s, i, arr) => <React.Fragment key={i}>
+                <div style={{ textAlign: 'center', padding: '0 14px' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{s.n}</div>
+                  <div style={{ fontSize: 11, color: '#a7f3d0', fontWeight: 400, letterSpacing: 0.3, marginTop: 2 }}>{s.l}</div>
+                </div>
+                {i < arr.length - 1 && <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.2)' }} />}
+              </React.Fragment>)}
+            </div>
           </div>
         </div>
-        <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0, height: 40, background: '#f9fafb', borderRadius: '24px 24px 0 0' }} />
+        <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0, height: 40, background: 'linear-gradient(to bottom, #fafaf9, #fafaf9)', borderRadius: '24px 24px 0 0' }} />
       </div>
 
-      {/* Must-See highlight card */}
+      {/* Must-See highlight card — cinematic full-width */}
       {topPlace && <div style={{ padding: '0 16px', marginTop: -16, position: 'relative', zIndex: 10 }}>
-        <div onClick={() => setSelPlace(topPlace)} style={{ background: 'white', borderRadius: 20, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', cursor: 'pointer' }}>
-          <div style={{ position: 'relative' }}>
-            <PlaceImage src={topPlace.image} category={topPlace.category} name={topPlace.name} style={{ width: '100%', height: 180 }} />
-            <div style={{ position: 'absolute', top: 12, [isRTL ? 'right' : 'left']: 12, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: 9999, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}><Sparkles style={{ width: 12, height: 12, color: '#fbbf24' }} /><span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>{t('Must See', 'لا تفوّت')}</span></div>
-          </div>
-          <div style={{ padding: 16, textAlign: isRTL ? 'right' : 'left' }}>
-            <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 18 }}>{isRTL ? topPlace.nameAr : topPlace.name}</h3>
-            <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>{(isRTL ? topPlace.descriptionAr : topPlace.description)?.substring(0, 100)}...</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, color: '#059669', fontSize: 13, fontWeight: 500 }}><MapPin style={{ width: 14, height: 14 }} />{topPlace.village}<span style={{ [isRTL ? 'marginRight' : 'marginLeft']: 'auto', color: '#10b981' }}>{t('View', 'عرض')} {isRTL ? '←' : '→'}</span></div>
+        <div onClick={() => setSelPlace(topPlace)} style={{ borderRadius: 20, overflow: 'hidden', cursor: 'pointer', position: 'relative', height: 220 }}>
+          <PlaceImage src={topPlace.image} category={topPlace.category} name={topPlace.name} style={{ width: '100%', height: '100%' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)' }} />
+          <div style={{ position: 'absolute', top: 14, [isRTL ? 'right' : 'left']: 14, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', borderRadius: 9999, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 4 }}><Sparkles style={{ width: 11, height: 11, color: '#fbbf24' }} /><span style={{ color: 'white', fontSize: 11, fontWeight: 500, letterSpacing: 0.3 }}>{t('Must See', 'لا تفوّت')}</span></div>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 18px', textAlign: isRTL ? 'right' : 'left' }}>
+            <h3 style={{ fontWeight: 700, color: 'white', fontSize: 20, marginBottom: 4, textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>{isRTL ? (topPlace.nameAr || topPlace.name) : topPlace.name}</h3>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, marginBottom: 8 }}>{(isRTL ? topPlace.descriptionAr : topPlace.description)?.substring(0, 80)}...</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12 }}><MapPin style={{ width: 12, height: 12 }} />{topPlace.village}<span style={{ [isRTL ? 'marginRight' : 'marginLeft']: 'auto', color: '#6ee7b7', fontWeight: 500 }}>{t('View', 'عرض')} {isRTL ? '←' : '→'}</span></div>
           </div>
         </div>
       </div>}
 
-      {/* Quick categories */}
-      <div style={{ padding: '28px 16px 0' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 14, textAlign: isRTL ? 'right' : 'left' }}>{t('What are you looking for?', 'ماذا تبحث عنه؟')}</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[{ Icon: StickCross, label: t('Churches', 'كنائس'), filter: 'religious', bg: '#fef3c7', color: '#d97706' },
-            { Icon: TreePine, label: t('Nature', 'طبيعة'), filter: 'nature', bg: '#dcfce7', color: '#16a34a' },
-            { Icon: Utensils, label: t('Dining', 'مطاعم'), filter: 'restaurant', bg: '#fee2e2', color: '#dc2626' },
-            { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', bg: '#dbeafe', color: '#2563eb' },
-            { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', bg: '#fff7ed', color: '#ea580c' },
-            { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', bg: '#f5f5f4', color: '#78716c' }
-          ].map((c, i) => <button key={i} onClick={() => { setCatFilter(c.filter); setTab('explore'); }} style={{ background: 'white', border: 'none', borderRadius: 16, padding: '16px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><c.Icon style={{ width: 22, height: 22, color: c.color }} /></div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>{c.label}</span>
+      {/* Quick categories — horizontal scrollable color strip */}
+      <div style={{ padding: '32px 0 0' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, padding: '0 16px', textAlign: isRTL ? 'right' : 'left' }}>{t('What are you looking for?', 'ماذا تبحث عنه؟')}</h2>
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
+          {[{ Icon: StickCross, label: t('Churches', 'كنائس'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' },
+            { Icon: TreePine, label: t('Nature', 'طبيعة'), filter: 'nature', gradient: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#15803d' },
+            { Icon: Utensils, label: t('Dining', 'مطاعم'), filter: 'restaurant', gradient: 'linear-gradient(135deg, #fee2e2, #fecaca)', color: '#b91c1c' },
+            { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', gradient: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', color: '#1d4ed8' },
+            { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', gradient: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#c2410c' },
+            { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', gradient: 'linear-gradient(135deg, #f5f5f4, #e7e5e4)', color: '#57534e' }
+          ].map((c, i) => <button key={i} onClick={() => { setCatFilter(c.filter); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <c.Icon style={{ width: 24, height: 24, color: c.color }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: c.color }}>{c.label}</span>
           </button>)}
         </div>
       </div>
 
-      {/* Next Event banner */}
-      {nextEvent && <div style={{ padding: '24px 16px 0' }}>
-        <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', borderRadius: 20, padding: 20, border: '1px solid #d1fae5' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><Calendar style={{ width: 16, height: 16, color: '#059669' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>{t('Coming Up', 'قادم قريباً')}</span></div>
-          <h3 style={{ fontWeight: 700, color: '#1f2937', fontSize: 17, marginBottom: 6 }}>{isRTL ? nextEvent.nameAr : nextEvent.name}</h3>
-          <p style={{ fontSize: 14, color: '#4b5563', marginBottom: 12 }}>{(isRTL ? nextEvent.descriptionAr : nextEvent.description)?.substring(0, 80)}...</p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#6b7280', fontSize: 13 }}><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock style={{ width: 13, height: 13 }} />{nextEvent.time}</span><span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin style={{ width: 13, height: 13 }} />{isRTL ? nextEvent.locationAr : nextEvent.location}</span></div>
-            <button onClick={() => setTab('events')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>{t('Details', 'تفاصيل')}</button>
+      {/* Next Event banner — calendar-style card */}
+      {nextEvent && evDate && <div style={{ padding: '32px 16px 0' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, textAlign: isRTL ? 'right' : 'left' }}>{t('Coming Up', 'قادم قريباً')}</h2>
+        <div onClick={() => setTab('events')} style={{ background: 'white', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', display: 'flex', gap: 16, alignItems: 'center', flexDirection: isRTL ? 'row-reverse' : 'row', border: 'none', boxShadow: 'none', [isRTL ? 'borderRight' : 'borderLeft']: `4px solid ${eventCatColor}` }}>
+          {/* Date block */}
+          <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 48 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1f2937', lineHeight: 1 }}>{evDate.getDate()}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{evDate.toLocaleString(lang === 'ar' ? 'ar' : 'en', { month: 'short' })}</div>
           </div>
+          {/* Event info */}
+          <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}>
+            <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15, marginBottom: 4 }}>{isRTL ? (nextEvent.nameAr || nextEvent.name) : nextEvent.name}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#9ca3af', fontSize: 12, flexWrap: 'wrap' }}>
+              {nextEvent.time && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock style={{ width: 11, height: 11 }} />{nextEvent.time}</span>}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 11, height: 11 }} />{isRTL ? (nextEvent.locationAr || nextEvent.location) : nextEvent.location}</span>
+            </div>
+          </div>
+          {isRTL ? <ChevronLeft style={{ width: 16, height: 16, color: '#d1d5db', flexShrink: 0 }} /> : <ChevronRight style={{ width: 16, height: 16, color: '#d1d5db', flexShrink: 0 }} />}
         </div>
       </div>}
 
-      {/* Top rated places */}
-      <div style={{ padding: '28px 16px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexDirection: isRTL ? 'row-reverse' : 'row' }}><h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937' }}>{t('Top Rated', 'الأعلى تقييماً')}</h2><button onClick={() => setTab('explore')} style={{ color: '#059669', fontSize: 13, fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer' }}>{t('See All', 'عرض الكل')}</button></div>
-        {businesses.filter(b => b.verified).sort((a, b) => b.rating - a.rating).slice(0, 4).map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ background: 'white', borderRadius: 16, padding: 14, marginBottom: 10, display: 'flex', gap: 14, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-          <PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: 72, height: 72, borderRadius: 14, flexShrink: 0 }} />
-          <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              {React.createElement(catIcons[b.category] || MapPin, { style: { width: 13, height: 13, color: catColors[b.category] || '#059669' } })}
-              <span style={{ fontSize: 11, color: catColors[b.category] || '#6b7280', fontWeight: 600, textTransform: 'capitalize' }}>{b.category}</span>
+      {/* Top rated — horizontal story-style image cards */}
+      <div style={{ padding: '32px 0 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, padding: '0 16px', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', letterSpacing: 0.5 }}>{t('Top Rated', 'الأعلى تقييماً')}</h2>
+          <button onClick={() => setTab('explore')} style={{ color: '#059669', fontSize: 13, fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer' }}>{t('See All', 'عرض الكل')}</button>
+        </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
+          {businesses.filter(b => b.verified).sort((a, b) => b.rating - a.rating).slice(0, 6).map(b => <div key={b.id} onClick={() => setSelBiz(b)} style={{ flexShrink: 0, width: 160, height: 210, borderRadius: 18, overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+            <PlaceImage src={b.image} category={b.category} name={b.name} style={{ width: '100%', height: '100%' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 45%, transparent 100%)' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 12px', textAlign: isRTL ? 'right' : 'left' }}>
+              <h3 style={{ fontWeight: 600, color: 'white', fontSize: 14, marginBottom: 4, textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{isRTL ? (b.nameAr || b.name) : b.name}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Star style={{ width: 12, height: 12, color: '#fbbf24', fill: '#fbbf24' }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'white' }}>{b.rating}</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginLeft: 2 }}>{b.village}</span>
+              </div>
             </div>
-            <h3 style={{ fontWeight: 600, color: '#1f2937', fontSize: 15 }}>{isRTL ? (b.nameAr || b.name) : b.name}</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}><Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{b.rating}</span><span style={{ fontSize: 13, color: '#9ca3af' }}>{b.priceRange}</span><span style={{ fontSize: 12, color: '#9ca3af' }}>· {b.village}</span></div>
-          </div>
-        </div>)}
+          </div>)}
+        </div>
       </div>
 
-      {/* Explore by village */}
-      <div style={{ padding: '24px 16px 0' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 14, textAlign: isRTL ? 'right' : 'left' }}>{t('Explore by Village', 'استكشف حسب القرية')}</h2>
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+      {/* Explore by village — circular thumbnails */}
+      <div style={{ padding: '32px 0 0' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, padding: '0 16px', textAlign: isRTL ? 'right' : 'left' }}>{t('Explore by Village', 'استكشف حسب القرية')}</h2>
+        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
           {['Ehden', 'Zgharta', 'Ardeh', 'Kfarsghab', 'Rachiine', 'Mejdlaya'].map(v => {
             const count = [...places, ...businesses].filter(i => i.village === v).length;
             const vPlace = places.find(p => p.village === v && p.image);
-            return <div key={v} onClick={() => { setMapVillageFilter([v]); setTab('map'); }} style={{ flexShrink: 0, width: 140, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <PlaceImage src={vPlace?.image} category={vPlace?.category || 'nature'} name={v} style={{ width: '100%', height: 100 }} />
-              <div style={{ padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
-                <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{v}</h4>
-                <p style={{ fontSize: 12, color: '#9ca3af' }}>{count} {t('places', 'أماكن')}</p>
+            return <div key={v} onClick={() => { setMapVillageFilter([v]); setTab('map'); }} style={{ flexShrink: 0, cursor: 'pointer', textAlign: 'center', width: 76 }}>
+              <div style={{ width: 72, height: 72, borderRadius: 20, overflow: 'hidden', margin: '0 auto 8px', border: '2px solid #e7e5e4' }}>
+                <PlaceImage src={vPlace?.image} category={vPlace?.category || 'nature'} name={v} style={{ width: '100%', height: '100%' }} />
               </div>
+              <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 12, marginBottom: 1 }}>{v}</h4>
+              <p style={{ fontSize: 10, color: '#9ca3af' }}>{count} {t('places', 'أماكن')}</p>
             </div>;
           })}
         </div>
       </div>
 
-      {/* Getting There */}
-      <div style={{ padding: '24px 16px 0' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 14, textAlign: isRTL ? 'right' : 'left' }}>{t('Getting There', 'كيف تصل')}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Getting There — minimal transit-style */}
+      <div style={{ padding: '32px 16px 0' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, textAlign: isRTL ? 'right' : 'left' }}>{t('Getting There', 'كيف تصل')}</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {[
             { from: t('From Beirut', 'من بيروت'), time: t('~2h drive (120 km)', '~ساعتان بالسيارة (120 كم)'), route: t('Via Chekka highway, then mountain road', 'عبر أوتوستراد شكا ثم طريق الجبل'), link: 'https://www.google.com/maps/dir/Beirut,+Lebanon/Zgharta,+Lebanon/' },
             { from: t('From Tripoli', 'من طرابلس'), time: t('~30 min drive (25 km)', '~30 دقيقة بالسيارة (25 كم)'), route: t('Direct road via Kousba or highway', 'طريق مباشر عبر القوصبة أو الأوتوستراد'), link: 'https://www.google.com/maps/dir/Tripoli,+Lebanon/Zgharta,+Lebanon/' },
             { from: t('Ehden from Zgharta', 'من زغرتا إلى إهدن'), time: t('~20 min drive (15 km)', '~20 دقيقة بالسيارة (15 كم)'), route: t('Mountain road, scenic views', 'طريق جبلي، مناظر خلابة'), link: 'https://www.google.com/maps/dir/Zgharta,+Lebanon/Ehden,+Lebanon/' }
-          ].map((r, i) => <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" style={{ background: 'white', borderRadius: 14, padding: 14, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Navigation style={{ width: 18, height: 18, color: '#10b981' }} />
+          ].map((r, i, arr) => <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" style={{ padding: '14px 0', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, borderBottom: i < arr.length - 1 ? '1px solid #e7e5e4' : 'none', flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Navigation style={{ width: 16, height: 16, color: '#10b981' }} />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, textAlign: isRTL ? 'right' : 'left' }}>
               <p style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{r.from}</p>
-              <p style={{ fontSize: 12, color: '#10b981', fontWeight: 500 }}>{r.time}</p>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{r.route}</p>
+              <p style={{ fontSize: 12, color: '#10b981', fontWeight: 500, marginTop: 1 }}>{r.time}</p>
             </div>
-            <ExternalLink style={{ width: 14, height: 14, color: '#d1d5db', flexShrink: 0 }} />
+            <ExternalLink style={{ width: 13, height: 13, color: '#d1d5db', flexShrink: 0 }} />
           </a>)}
         </div>
       </div>
