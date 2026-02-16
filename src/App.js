@@ -193,11 +193,12 @@ export default function ZghartaTourismApp() {
         <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, padding: '0 16px', textAlign: isRTL ? 'right' : 'left' }}>{t('What are you looking for?', 'ماذا تبحث عنه؟')}</h2>
         <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
           {[{ Icon: Utensils, label: t('Dining', 'مطاعم'), filter: 'restaurant', gradient: 'linear-gradient(135deg, #fee2e2, #fecaca)', color: '#b91c1c' },
+            { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', gradient: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#c2410c' },
+            { Icon: ShoppingBag, label: t('Shops', 'متاجر'), filter: 'shop', gradient: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', color: '#7c3aed' },
             { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', gradient: 'linear-gradient(135deg, #f5f5f4, #e7e5e4)', color: '#57534e' },
             { Icon: TreePine, label: t('Nature', 'طبيعة'), filter: 'nature', gradient: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#15803d' },
             { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', gradient: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', color: '#1d4ed8' },
-            { Icon: StickCross, label: t('Churches', 'كنائس'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' },
-            { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', gradient: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#c2410c' }
+            { Icon: StickCross, label: t('Churches', 'كنائس'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' }
           ].map((c, i) => <button key={i} onClick={() => { setCatFilter([c.filter]); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <c.Icon style={{ width: 24, height: 24, color: c.color }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: c.color }}>{c.label}</span>
@@ -329,12 +330,12 @@ export default function ZghartaTourismApp() {
 
     const categories = [
       { id: 'restaurant', icon: Utensils, l: t('Restaurants', 'مطاعم'), color: '#e06060' },
+      { id: 'cafe', icon: Coffee, l: t('Cafes', 'مقاهي'), color: '#e08a5a' },
       { id: 'shop', icon: ShoppingBag, l: t('Shops', 'متاجر'), color: '#9b7ed8' },
       { id: 'heritage', icon: Landmark, l: t('Heritage', 'تراث'), color: '#8d8680' },
       { id: 'nature', icon: TreePine, l: t('Nature', 'طبيعة'), color: '#5aab6e' },
       { id: 'hotel', icon: BedDouble, l: t('Hotels', 'فنادق'), color: '#5b8fd9' },
       { id: 'religious', icon: StickCross, l: t('Churches', 'كنائس'), color: '#d4a054' },
-      { id: 'cafe', icon: Coffee, l: t('Cafes', 'مقاهي'), color: '#e08a5a' },
     ];
 
     const hasActiveFilters = catFilter.length > 0 || mapVillageFilter.length > 0 || minRating > 0;
@@ -883,11 +884,12 @@ export default function ZghartaTourismApp() {
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', direction: isRTL ? 'rtl' : 'ltr' }}>
         {[
           { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
+          { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
+          { id: 'shop', icon: ShoppingBag, en: 'Shops', ar: 'متاجر', color: '#9b7ed8' },
           { id: 'heritage', icon: Landmark, en: 'Landmarks', ar: 'معالم', color: '#8d8680' },
           { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
           { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
           { id: 'religious', icon: StickCross, en: 'Churches', ar: 'كنائس', color: '#d4a054' },
-          { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
         ].map(c => {
           const active = mapFilter.includes(c.id);
           const Icon = c.icon;
@@ -976,7 +978,7 @@ export default function ZghartaTourismApp() {
   const favsEmpty = allSaved.length === 0;
   const favsTotalCount = allSaved.length;
   const favsGroups = React.useMemo(() => {
-    const catOrder = ['restaurant', 'shop', 'heritage', 'nature', 'hotel', 'religious', 'cafe'];
+    const catOrder = ['restaurant', 'cafe', 'shop', 'heritage', 'nature', 'hotel', 'religious'];
     const g = {};
     allSaved.forEach(i => { if (!g[i.category]) g[i.category] = []; g[i.category].push(i); });
     const ordered = {};
