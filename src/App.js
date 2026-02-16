@@ -449,7 +449,6 @@ export default function ZghartaTourismApp() {
     const [mapFilter, setMapFilter] = useState([]);
     const [geoActive, setGeoActive] = useState(false);
     const geoMarkerRef = React.useRef(null);
-    const [mapHeading, setMapHeading] = useState(0);
     const villageFilter = mapVillageFilter;
     const setVillageFilter = setMapVillageFilter;
     const [showVillageDrop, setShowVillageDrop] = useState(false);
@@ -515,7 +514,7 @@ export default function ZghartaTourismApp() {
       const existing = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existing) { const check = () => { if (window.google?.maps) setMapLoaded(true); else checkTimer = setTimeout(check, 200); }; check(); return () => clearTimeout(checkTimer); }
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}`;
       script.async = true; script.defer = true;
       script.onload = () => setMapLoaded(true);
       script.onerror = () => setMapError(true);
@@ -536,31 +535,20 @@ export default function ZghartaTourismApp() {
         mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
           center: { lat: 34.3955, lng: 35.8945 },
           zoom: 15,
-          mapId: 'zgharta-tourism-map',
           gestureHandling: 'greedy',
           disableDefaultUI: true,
           zoomControl: false,
-          rotateControl: false,
-          heading: 0,
           styles: [
-            { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
             { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-            { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit.station', stylers: [{ visibility: 'off' }] },
           ],
         });
         mapInstanceRef.current.addListener('click', () => setSelectedMarker(null));
         mapInstanceRef.current.addListener('dragstart', () => setGeoActive(false));
-        mapInstanceRef.current.addListener('heading_changed', () => setMapHeading(mapInstanceRef.current.getHeading() || 0));
         mapInstanceRef.current.addListener('zoom_changed', () => {
           const zoom = mapInstanceRef.current.getZoom();
-          markersRef.current.forEach(({ marker, elDot, elIcon, elLabeled }) => {
-            if (zoom < 12) {
-              marker.map = null;
-            } else {
-              marker.map = mapInstanceRef.current;
-              marker.content = zoom >= 16 ? elLabeled : zoom >= 14 ? elIcon : elDot;
-            }
-          });
+          markersRef.current.forEach(({ overlay }) => overlay.updateContent(zoom));
         });
         mapInstanceRef.current.addListener('idle', () => updateCards());
       }
@@ -580,32 +568,63 @@ export default function ZghartaTourismApp() {
       };
 
       // Clear old markers
-      markersRef.current.forEach(({ marker }) => { marker.map = null; });
+      markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
       markersRef.current = [];
 
       const zoom = mapInstanceRef.current.getZoom();
+
+      // Custom overlay class for HTML markers
+      class HtmlMarker extends window.google.maps.OverlayView {
+        constructor(position, elements, onClick) {
+          super();
+          this.position = position;
+          this.elements = elements; // { elDot, elIcon, elLabeled }
+          this.onClick = onClick;
+          this.div = null;
+        }
+        onAdd() {
+          this.div = document.createElement('div');
+          this.div.style.cssText = 'position:absolute;cursor:pointer;';
+          const z = this.getMap()?.getZoom() || 15;
+          this.div.appendChild(z >= 16 ? this.elements.elLabeled : z >= 14 ? this.elements.elIcon : this.elements.elDot);
+          this.div.addEventListener('click', (e) => { e.stopPropagation(); this.onClick(); });
+          this.getPanes().overlayMouseTarget.appendChild(this.div);
+        }
+        draw() {
+          if (!this.div) return;
+          const proj = this.getProjection();
+          if (!proj) return;
+          const pos = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(this.position.lat, this.position.lng));
+          if (pos) { this.div.style.left = pos.x + 'px'; this.div.style.top = pos.y + 'px'; this.div.style.transform = 'translate(-50%, -50%)'; }
+        }
+        onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
+        updateContent(zoom) {
+          if (!this.div) return;
+          if (zoom < 12) { this.div.style.display = 'none'; return; }
+          this.div.style.display = '';
+          const el = zoom >= 16 ? this.elements.elLabeled : zoom >= 14 ? this.elements.elIcon : this.elements.elDot;
+          if (this.div.firstChild !== el) { this.div.innerHTML = ''; this.div.appendChild(el); }
+        }
+      }
 
       filteredLocations.forEach(loc => {
         const color = markerColors[loc.category] || '#10b981';
         const locName = isRTL ? (loc.nameAr || loc.name) : loc.name;
 
-        const elDot = makeDotEl(color);
-        const elIcon = makeIconEl(loc.category, color);
-        const elLabeled = makeLabeledEl(loc.category, color, locName);
+        const elements = {
+          elDot: makeDotEl(color),
+          elIcon: makeIconEl(loc.category, color),
+          elLabeled: makeLabeledEl(loc.category, color, locName),
+        };
 
-        const marker = new window.google.maps.marker.AdvancedMarkerElement({
-          map: zoom >= 12 ? mapInstanceRef.current : null,
-          position: { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
-          content: zoom >= 16 ? elLabeled : zoom >= 14 ? elIcon : elDot,
-          collisionBehavior: window.google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
-        });
+        const overlay = new HtmlMarker(
+          { lat: loc.coordinates.lat, lng: loc.coordinates.lng },
+          elements,
+          () => { setSelectedMarker(loc); mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng }); }
+        );
+        overlay.setMap(mapInstanceRef.current);
 
-        marker.addListener('click', () => {
-          setSelectedMarker(loc);
-          mapInstanceRef.current.panTo({ lat: loc.coordinates.lat, lng: loc.coordinates.lng });
-        });
-
-        markersRef.current.push({ marker, elDot, elIcon, elLabeled });
+        markersRef.current.push({ overlay, elements });
       });
 
       // Fit bounds when filters are active
@@ -631,9 +650,9 @@ export default function ZghartaTourismApp() {
         }, () => {});
       }
       return () => {
-        markersRef.current.forEach(({ marker }) => { marker.map = null; });
+        markersRef.current.forEach(({ overlay }) => overlay.setMap(null));
         markersRef.current = [];
-        if (geoMarkerRef.current) geoMarkerRef.current.map = null;
+        if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
       };
     }, [mapLoaded, filteredLocations]);
 
@@ -653,12 +672,25 @@ export default function ZghartaTourismApp() {
         mapInstanceRef.current.panTo(position);
         mapInstanceRef.current.setZoom(16);
         setGeoActive(true);
-        if (geoMarkerRef.current) geoMarkerRef.current.map = null;
-        const dot = document.createElement('div');
-        dot.innerHTML = '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);animation:geoPulse 2s infinite"></div>';
-        geoMarkerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
-          map: mapInstanceRef.current, position, content: dot, zIndex: 999
-        });
+        if (geoMarkerRef.current) { geoMarkerRef.current.setMap(null); geoMarkerRef.current = null; }
+        // Blue dot overlay
+        const GeoOverlay = class extends window.google.maps.OverlayView {
+          onAdd() {
+            this.div = document.createElement('div');
+            this.div.style.cssText = 'position:absolute;';
+            this.div.innerHTML = '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);animation:geoPulse 2s infinite"></div>';
+            this.getPanes().overlayMouseTarget.appendChild(this.div);
+          }
+          draw() {
+            const proj = this.getProjection();
+            if (!proj || !this.div) return;
+            const p = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(position.lat, position.lng));
+            if (p) { this.div.style.left = (p.x - 11) + 'px'; this.div.style.top = (p.y - 11) + 'px'; }
+          }
+          onRemove() { if (this.div) { this.div.remove(); this.div = null; } }
+        };
+        geoMarkerRef.current = new GeoOverlay();
+        geoMarkerRef.current.setMap(mapInstanceRef.current);
       }, () => {});
     };
 
@@ -730,26 +762,12 @@ export default function ZghartaTourismApp() {
       <button onClick={handleLocateMe} style={{
         position: 'absolute', bottom: 240, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
         width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
-        background: geoActive ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.5)',
-        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280' }} />
-      </button>
-
-      {/* Compass button — visible only when rotated */}
-      <button onClick={() => { if (mapInstanceRef.current) mapInstanceRef.current.setHeading(0); }} style={{
-        position: 'absolute', bottom: 240, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
-        width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: mapHeading !== 0 ? 1 : 0, pointerEvents: mapHeading !== 0 ? 'auto' : 'none',
-        transition: 'opacity 0.3s ease',
       }}>
-        <Compass style={{ width: 22, height: 22, color: '#374151', transform: `rotate(${-mapHeading}deg)`, transition: 'transform 0.3s ease' }} />
+        <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
       </button>
 
       {/* Card carousel */}
