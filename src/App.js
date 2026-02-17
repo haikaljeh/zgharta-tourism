@@ -967,12 +967,13 @@ export default function ZghartaTourismApp() {
     {/* Back to Zgharta pill */}
     <button onClick={() => { mapInstanceRef.current?.panTo({ lat: 34.3955, lng: 35.8945 }); mapInstanceRef.current?.setZoom(13); }} style={{
       position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 234 : 80, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
-      height: 36, padding: '0 14px', borderRadius: 18, border: '1px solid rgba(255,255,255,0.3)',
+      height: 36, padding: '0 14px', borderRadius: 18, border: '1.5px solid rgba(16,185,129,0.3)',
       background: 'rgba(255,255,255,0.7)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.15)', cursor: 'pointer',
       display: 'flex', alignItems: 'center', gap: 6,
       opacity: outsideBounds ? 1 : 0, pointerEvents: outsideBounds ? 'auto' : 'none',
+      animation: outsideBounds ? 'homePulse 2s ease-in-out infinite' : 'none',
       transition: 'bottom 0.3s ease, opacity 0.3s ease',
     }}>
       <Compass style={{ width: 16, height: 16, color: '#10b981' }} />
@@ -1014,7 +1015,7 @@ export default function ZghartaTourismApp() {
         {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
       </div>)}
     </div>}
-    <style>{'.map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
+    <style>{'.map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes homePulse { 0%,100% { box-shadow: 0 2px 10px rgba(0,0,0,0.15), 0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow: 0 2px 10px rgba(0,0,0,0.15), 0 0 0 8px rgba(16,185,129,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
   </div>;
 
   // FavsScreen state lifted to parent to prevent remount flicker
