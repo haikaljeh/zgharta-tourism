@@ -8,19 +8,34 @@
 // and imports them with full details.
 //
 // USAGE:
-//   node import-businesses.js
+//   node scripts/import-businesses.js
+//   node scripts/import-businesses.js --dry-run
 //
 // REQUIRES:
-//   - Google Places API key (with Places API enabled)
-//   - Supabase service role key
+//   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY env vars
+// =============================================
+// SQL needed for upsert (run once in Supabase SQL editor):
+//   ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;
 // =============================================
 
 const { createClient } = require('@supabase/supabase-js');
 
-// ---- CONFIGURATION ----
-const SUPABASE_URL = 'https://mhohpseegfnfzycxvcuk.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ob2hwc2VlZ2ZuZnp5Y3h2Y3VrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQxNzA1MSwiZXhwIjoyMDgzOTkzMDUxfQ.pv0Ic0bvyCpt0np5Orm711n15TS54V1dzpNBE_J-7yU';
-const GOOGLE_API_KEY = 'AIzaSyAMbrfgFy4sD0HemSdDU1SkQxUJbQMW9i8';
+// ---- ENV VALIDATION ----
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+
+const missing = [];
+if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+if (!SUPABASE_SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+if (!GOOGLE_API_KEY) missing.push('GOOGLE_API_KEY');
+if (missing.length > 0) {
+  console.error(`Missing required environment variables: ${missing.join(', ')}`);
+  console.error('Copy .env.example to .env and fill in your values.');
+  process.exit(1);
+}
+
+const DRY_RUN = process.argv.includes('--dry-run');
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -92,7 +107,7 @@ async function searchNearby(lat, lng, radius, keyword) {
     const data = await res.json();
     return data.results || [];
   } catch (err) {
-    console.error(`  ❌ Search failed: ${err.message}`);
+    console.error(`  Search failed: ${err.message}`);
     return [];
   }
 }
@@ -105,7 +120,7 @@ async function getPlaceDetails(placeId) {
     const data = await res.json();
     return data.result || null;
   } catch (err) {
-    console.error(`  ❌ Details failed: ${err.message}`);
+    console.error(`  Details failed: ${err.message}`);
     return null;
   }
 }
@@ -115,28 +130,19 @@ function getPhotoUrl(photoReference, maxWidth = 800) {
 }
 
 async function main() {
-  console.log('🇱🇧 Zgharta Tourism — Bulk Business Importer');
-  console.log('==============================================\n');
-
-  // Validate keys
-  if (SUPABASE_SERVICE_KEY.includes('YOUR_')) {
-    console.error('❌ Set your SUPABASE_SERVICE_KEY in the script.');
-    console.error('   Dashboard → Settings → API → service_role key');
-    process.exit(1);
-  }
-  if (GOOGLE_API_KEY.includes('YOUR_')) {
-    console.error('❌ Set your GOOGLE_API_KEY in the script.');
-    process.exit(1);
-  }
+  console.log('Zgharta Tourism — Bulk Business Importer');
+  console.log('==============================================');
+  if (DRY_RUN) console.log('** DRY RUN — no database writes **');
+  console.log('');
 
   // Track unique places by Google place_id to avoid duplicates
   const seenPlaceIds = new Set();
   const allBusinesses = [];
 
-  // Search each area × each query
+  // Search each area x each query
   for (const area of SEARCH_AREAS) {
     for (const sq of SEARCH_QUERIES) {
-      console.log(`🔍 Searching "${sq.query}" in ${area.name}...`);
+      console.log(`Searching "${sq.query}" in ${area.name}...`);
       await sleep(DELAY_MS);
 
       const results = await searchNearby(area.lat, area.lng, area.radius, sq.query);
@@ -169,7 +175,7 @@ async function main() {
 
         const business = {
           name: place.name,
-          name_ar: null, // Would need translation API
+          name_ar: null,
           category: sq.category,
           village: village,
           description: description,
@@ -183,15 +189,16 @@ async function main() {
           website: details.website || null,
           specialties: null,
           verified: true,
+          google_place_id: place.place_id,
         };
 
         allBusinesses.push(business);
-        console.log(`   ✅ ${place.name} (${sq.category}) — ${village}`);
+        console.log(`   + ${place.name} (${sq.category}) — ${village}`);
       }
     }
   }
 
-  console.log(`\n📊 Total unique businesses found: ${allBusinesses.length}\n`);
+  console.log(`\nTotal unique businesses found: ${allBusinesses.length}\n`);
 
   if (allBusinesses.length === 0) {
     console.log('No businesses found. Check your API key and that Places API is enabled.');
@@ -205,41 +212,47 @@ async function main() {
   Object.entries(counts).forEach(([cat, count]) => console.log(`  ${cat}: ${count}`));
   console.log('');
 
-  // Delete existing businesses and insert fresh
-  console.log('🗑️  Clearing existing businesses...');
-  const { error: delErr } = await supabase.from('businesses').delete().neq('id', 0);
-  if (delErr) {
-    console.error('❌ Failed to clear:', delErr.message);
-    console.log('Continuing with insert anyway...\n');
+  if (DRY_RUN) {
+    console.log('==============================================');
+    console.log(`DRY RUN complete. ${allBusinesses.length} businesses would be upserted.`);
+    console.log('==============================================');
+    return;
   }
 
-  // Insert in batches of 20
+  // Upsert in batches of 20
   const batchSize = 20;
   let inserted = 0;
+  let failed = 0;
+
   for (let i = 0; i < allBusinesses.length; i += batchSize) {
     const batch = allBusinesses.slice(i, i + batchSize);
-    const { error } = await supabase.from('businesses').insert(batch);
+    const { error } = await supabase
+      .from('businesses')
+      .upsert(batch, { onConflict: 'google_place_id' });
     if (error) {
-      console.error(`❌ Batch insert failed: ${error.message}`);
+      console.error(`Batch upsert failed: ${error.message}`);
       // Try one by one
       for (const biz of batch) {
-        const { error: singleErr } = await supabase.from('businesses').insert(biz);
+        const { error: singleErr } = await supabase
+          .from('businesses')
+          .upsert(biz, { onConflict: 'google_place_id' });
         if (singleErr) {
-          console.error(`   ❌ Skipped "${biz.name}": ${singleErr.message}`);
+          console.error(`   Skipped "${biz.name}": ${singleErr.message}`);
+          failed++;
         } else {
           inserted++;
         }
       }
     } else {
       inserted += batch.length;
-      console.log(`   Inserted batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)`);
+      console.log(`   Upserted batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)`);
     }
   }
 
   console.log('\n==============================================');
-  console.log(`🎉 Done! ${inserted} businesses imported.`);
+  console.log(`Done! upserted: ${inserted}, failed: ${failed}`);
   console.log('==============================================');
-  console.log('\n💡 Tips:');
+  console.log('\nTips:');
   console.log('   - Arabic names (name_ar) are blank — add manually or use a translation API');
   console.log('   - Photo URLs expire after a few months — re-run periodically');
   console.log('   - Check Supabase Table Editor to review imported data');

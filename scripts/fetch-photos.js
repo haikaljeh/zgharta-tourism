@@ -9,21 +9,31 @@
 // 4. Updates the image_url in Supabase
 //
 // USAGE:
-//   npm install @supabase/supabase-js node-fetch
-//   node fetch-photos.js
+//   node scripts/fetch-photos.js
+//   node scripts/fetch-photos.js --dry-run
 //
 // REQUIRES:
-//   - Google Places API key (with Places API enabled)
-//   - Supabase service role key (for write access)
+//   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY env vars
 // =============================================
 
 const { createClient } = require('@supabase/supabase-js');
 
-// ---- CONFIGURATION ----
-// Replace these with your actual keys
-const SUPABASE_URL = 'https://mhohpseegfnfzycxvcuk.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ob2hwc2VlZ2ZuZnp5Y3h2Y3VrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQxNzA1MSwiZXhwIjoyMDgzOTkzMDUxfQ.pv0Ic0bvyCpt0np5Orm711n15TS54V1dzpNBE_J-7yU'; // ⚠️ Use SERVICE ROLE key, not anon key
-const GOOGLE_API_KEY = 'AIzaSyAMbrfgFy4sD0HemSdDU1SkQxUJbQMW9i8';
+// ---- ENV VALIDATION ----
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+
+const missing = [];
+if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+if (!SUPABASE_SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+if (!GOOGLE_API_KEY) missing.push('GOOGLE_API_KEY');
+if (missing.length > 0) {
+  console.error(`Missing required environment variables: ${missing.join(', ')}`);
+  console.error('Copy .env.example to .env and fill in your values.');
+  process.exit(1);
+}
+
+const DRY_RUN = process.argv.includes('--dry-run');
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -39,7 +49,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function searchPlace(name, village) {
   const query = `${name} ${village} Lebanon`;
   const url = `${PLACES_SEARCH_URL}?input=${encodeURIComponent(query)}&inputtype=textquery&fields=place_id,name,photos&key=${GOOGLE_API_KEY}`;
-  
+
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -48,14 +58,14 @@ async function searchPlace(name, village) {
     }
     return null;
   } catch (err) {
-    console.error(`  ❌ Search failed for "${name}": ${err.message}`);
+    console.error(`  Search failed for "${name}": ${err.message}`);
     return null;
   }
 }
 
 async function getPlaceDetails(placeId) {
   const url = `${PLACES_DETAILS_URL}?place_id=${placeId}&fields=photos&key=${GOOGLE_API_KEY}`;
-  
+
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -64,20 +74,19 @@ async function getPlaceDetails(placeId) {
     }
     return null;
   } catch (err) {
-    console.error(`  ❌ Details failed: ${err.message}`);
+    console.error(`  Details failed: ${err.message}`);
     return null;
   }
 }
 
 function getPhotoUrl(photoReference, maxWidth = 800) {
-  // This URL will redirect to the actual photo
   return `${PLACES_PHOTO_URL}?maxwidth=${maxWidth}&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
 }
 
 async function processTable(tableName, items) {
-  console.log(`\n📸 Processing ${tableName} (${items.length} items)...`);
-  console.log('─'.repeat(50));
-  
+  console.log(`\nProcessing ${tableName} (${items.length} items)...`);
+  console.log('-'.repeat(50));
+
   let updated = 0;
   let skipped = 0;
   let failed = 0;
@@ -85,18 +94,18 @@ async function processTable(tableName, items) {
   for (const item of items) {
     // Skip if already has an image
     if (item.image_url) {
-      console.log(`  ⏭  ${item.name} — already has image`);
+      console.log(`  Skip: ${item.name} — already has image`);
       skipped++;
       continue;
     }
 
-    console.log(`  🔍 Searching: ${item.name} (${item.village})...`);
+    console.log(`  Search: ${item.name} (${item.village})...`);
     await sleep(DELAY_MS);
 
     // Step 1: Search for the place
     const candidate = await searchPlace(item.name, item.village);
     if (!candidate) {
-      console.log(`  ⚠️  No results for "${item.name}"`);
+      console.log(`  No results for "${item.name}"`);
       failed++;
       continue;
     }
@@ -112,13 +121,19 @@ async function processTable(tableName, items) {
     }
 
     if (!photoRef) {
-      console.log(`  ⚠️  No photos found for "${item.name}"`);
+      console.log(`  No photos found for "${item.name}"`);
       failed++;
       continue;
     }
 
     // Step 3: Build photo URL
     const photoUrl = getPhotoUrl(photoRef, 800);
+
+    if (DRY_RUN) {
+      console.log(`  Would update: ${item.name} — photo URL ready`);
+      updated++;
+      continue;
+    }
 
     // Step 4: Update Supabase
     const { error } = await supabase
@@ -127,43 +142,33 @@ async function processTable(tableName, items) {
       .eq('id', item.id);
 
     if (error) {
-      console.log(`  ❌ DB update failed for "${item.name}": ${error.message}`);
+      console.log(`  DB update failed for "${item.name}": ${error.message}`);
       failed++;
     } else {
-      console.log(`  ✅ ${item.name} — photo saved!`);
+      console.log(`  Updated: ${item.name} — photo saved!`);
       updated++;
     }
 
     await sleep(DELAY_MS);
   }
 
-  console.log(`\n  📊 ${tableName} results: ${updated} updated, ${skipped} skipped, ${failed} failed`);
+  console.log(`\n  ${tableName} results: ${updated} updated, ${skipped} skipped, ${failed} failed`);
   return { updated, skipped, failed };
 }
 
 async function main() {
-  console.log('🇱🇧 Zgharta Tourism App — Photo Fetcher');
-  console.log('=========================================\n');
-
-  // Validate keys
-  if (SUPABASE_SERVICE_KEY === 'YOUR_SUPABASE_SERVICE_ROLE_KEY') {
-    console.error('❌ Please set your SUPABASE_SERVICE_KEY in the script.');
-    console.error('   Find it in: Supabase Dashboard → Settings → API → service_role key');
-    process.exit(1);
-  }
-  if (GOOGLE_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
-    console.error('❌ Please set your GOOGLE_API_KEY in the script.');
-    console.error('   Make sure Places API is enabled in Google Cloud Console.');
-    process.exit(1);
-  }
+  console.log('Zgharta Tourism App — Photo Fetcher');
+  console.log('=========================================');
+  if (DRY_RUN) console.log('** DRY RUN — no database writes **');
+  console.log('');
 
   // Fetch all places
   const { data: places, error: pErr } = await supabase.from('places').select('*');
-  if (pErr) { console.error('❌ Failed to fetch places:', pErr.message); process.exit(1); }
+  if (pErr) { console.error('Failed to fetch places:', pErr.message); process.exit(1); }
 
   // Fetch all businesses
   const { data: businesses, error: bErr } = await supabase.from('businesses').select('*');
-  if (bErr) { console.error('❌ Failed to fetch businesses:', bErr.message); process.exit(1); }
+  if (bErr) { console.error('Failed to fetch businesses:', bErr.message); process.exit(1); }
 
   console.log(`Found ${places.length} places and ${businesses.length} businesses\n`);
 
@@ -173,17 +178,18 @@ async function main() {
 
   // Summary
   const total = placesResult.updated + bizResult.updated;
+  const totalSkipped = placesResult.skipped + bizResult.skipped;
   const totalFailed = placesResult.failed + bizResult.failed;
   console.log('\n=========================================');
-  console.log(`🎉 Done! ${total} photos added, ${totalFailed} failed.`);
+  console.log(`Done! updated: ${total}, skipped: ${totalSkipped}, failed: ${totalFailed}`);
   console.log('=========================================');
-  
+
   if (totalFailed > 0) {
-    console.log('\n💡 Tip: For failed items, you can manually add image URLs');
-    console.log('   in the Supabase Table Editor → image_url column');
+    console.log('\nTip: For failed items, you can manually add image URLs');
+    console.log('   in the Supabase Table Editor -> image_url column');
   }
 
-  console.log('\n⚠️  Note: Google Places photo URLs expire after a few months.');
+  console.log('\nNote: Google Places photo URLs expire after a few months.');
   console.log('   For production, consider downloading images to Supabase Storage.');
   console.log('   Run this script periodically to refresh URLs.\n');
 }

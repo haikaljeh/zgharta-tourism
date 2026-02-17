@@ -13,7 +13,13 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test"
+    "test": "react-scripts test",
+    "import-businesses": "node scripts/import-businesses.js",
+    "import-businesses:dry": "node scripts/import-businesses.js --dry-run",
+    "update-websites": "node scripts/update-websites.js",
+    "update-websites:dry": "node scripts/update-websites.js --dry-run",
+    "fetch-photos": "node scripts/fetch-photos.js",
+    "fetch-photos:dry": "node scripts/fetch-photos.js --dry-run"
   },
   "browserslist": {
     "production": [
