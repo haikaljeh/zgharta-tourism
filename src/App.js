@@ -615,11 +615,31 @@ export default function ZghartaTourismApp() {
 
   useEffect(() => {
     if (tab !== 'map') return;
-    const origBody = document.body.style.overflow;
-    const origHtml = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const orig = {
+      bodyOverflow: document.body.style.overflow,
+      bodyHeight: document.body.style.height,
+      bodyPosition: document.body.style.position,
+      bodyWidth: document.body.style.width,
+      bodyTop: document.body.style.top,
+      htmlOverflow: document.documentElement.style.overflow,
+      htmlHeight: document.documentElement.style.height,
+    };
     document.documentElement.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = origBody; document.documentElement.style.overflow = origHtml; };
+    document.documentElement.style.height = '100%';
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100%';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.top = '0';
+    return () => {
+      document.documentElement.style.overflow = orig.htmlOverflow;
+      document.documentElement.style.height = orig.htmlHeight;
+      document.body.style.overflow = orig.bodyOverflow;
+      document.body.style.height = orig.bodyHeight;
+      document.body.style.position = orig.bodyPosition;
+      document.body.style.width = orig.bodyWidth;
+      document.body.style.top = orig.bodyTop;
+    };
   }, [tab]);
 
   useEffect(() => {
@@ -874,11 +894,11 @@ export default function ZghartaTourismApp() {
     }, () => {});
   };
 
-  const MapScreen = () => <div className="map-screen" style={{ position: 'relative', overflow: 'hidden' }}>
+  const MapScreen = () => <div className="map-screen" style={{ position: 'fixed', inset: 0, maxWidth: 448, margin: '0 auto', overflow: 'hidden', touchAction: 'none', zIndex: 1 }}>
     {GOOGLE_MAPS_KEY ? (
       mapError ? <div style={{ width: '100%', height: '100%', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ textAlign: 'center' }}><Map style={{ width: 48, height: 48, color: '#d1d5db', margin: '0 auto 12px' }} /><p style={{ color: '#6b7280', marginBottom: 12 }}>{t('Map failed to load', 'فشل تحميل الخريطة')}</p><button onClick={() => window.location.reload()} style={{ padding: '8px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer', fontSize: 14 }}>{t('Reload', 'إعادة تحميل')}</button></div></div>
       : <>
-        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
         {!mapLoaded && <div style={{ position: 'absolute', inset: 0, background: '#f0f4ee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 style={{ width: 32, height: 32, color: '#10b981', animation: 'spin 1s linear infinite' }} /></div>}
       </>
     ) : (
@@ -933,7 +953,7 @@ export default function ZghartaTourismApp() {
 
     {/* Locate me button */}
     <button onClick={handleLocateMe} style={{
-      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 230 : 76, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 218 : 64, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
       width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.5)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -946,7 +966,7 @@ export default function ZghartaTourismApp() {
 
     {/* Back to Zgharta pill */}
     <button onClick={() => { mapInstanceRef.current?.panTo({ lat: 34.3955, lng: 35.8945 }); mapInstanceRef.current?.setZoom(13); }} style={{
-      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 230 : 76, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 218 : 64, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
       height: 36, padding: '0 14px', borderRadius: 18, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.7)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -961,7 +981,7 @@ export default function ZghartaTourismApp() {
 
     {/* Card toggle button */}
     {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
-      position: 'absolute', bottom: cardsVisible ? 230 : 76, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+      position: 'absolute', bottom: cardsVisible ? 218 : 64, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
       width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.5)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -975,7 +995,7 @@ export default function ZghartaTourismApp() {
     </button>}
 
     {/* Card carousel */}
-    {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 68, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 68px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
+    {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 56, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'visible', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 56px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
       {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center' }}>
         <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
@@ -994,7 +1014,7 @@ export default function ZghartaTourismApp() {
         {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
       </div>)}
     </div>}
-    <style>{'.map-screen { height: 100vh; height: 100dvh; } .map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
+    <style>{'.map-carousel::-webkit-scrollbar { display: none; } @keyframes geoPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); } 50% { box-shadow: 0 0 0 10px rgba(59,130,246,0); } } @keyframes markerPop { 0% { transform: scale(0) translateY(10px); opacity: 0; } 60% { transform: scale(1.15) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } } .map-screen .gm-style > div:last-child { bottom: 56px !important; }'}</style>
   </div>;
 
   // FavsScreen state lifted to parent to prevent remount flicker
