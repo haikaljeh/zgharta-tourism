@@ -953,7 +953,7 @@ export default function ZghartaTourismApp() {
 
     {/* Locate me button */}
     <button onClick={handleLocateMe} style={{
-      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 218 : 64, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 234 : 80, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
       width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.5)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -966,7 +966,7 @@ export default function ZghartaTourismApp() {
 
     {/* Back to Zgharta pill */}
     <button onClick={() => { mapInstanceRef.current?.panTo({ lat: 34.3955, lng: 35.8945 }); mapInstanceRef.current?.setZoom(13); }} style={{
-      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 218 : 64, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
+      position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 234 : 80, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
       height: 36, padding: '0 14px', borderRadius: 18, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.7)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -981,7 +981,7 @@ export default function ZghartaTourismApp() {
 
     {/* Card toggle button */}
     {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
-      position: 'absolute', bottom: cardsVisible ? 218 : 64, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
+      position: 'absolute', bottom: cardsVisible ? 234 : 80, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
       width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
       background: 'rgba(255,255,255,0.5)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -995,7 +995,7 @@ export default function ZghartaTourismApp() {
     </button>}
 
     {/* Card carousel */}
-    {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 56, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'visible', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 56px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
+    {visibleCards.length > 0 && <div ref={carouselRef} className="map-carousel" style={{ position: 'absolute', bottom: 72, left: 0, right: 0, zIndex: 10, display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'visible', scrollSnapType: 'x mandatory', padding: '0 24px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', transform: cardsVisible ? 'translateY(0)' : 'translateY(calc(100% + 72px))', transition: 'transform 0.3s ease', pointerEvents: cardsVisible ? 'auto' : 'none' }}>
       {visibleCards.map(loc => <div key={`${loc.type}-${loc.id}`} onClick={() => { loc.type === 'place' ? setSelPlace(loc) : setSelBiz(loc); }} style={{ flexShrink: 0, width: 'calc(100vw - 80px)', maxWidth: 340, height: 150, borderRadius: 16, overflow: 'hidden', position: 'relative', cursor: 'pointer', scrollSnapAlign: 'center' }}>
         <PlaceImage src={loc.image} category={loc.category} name={loc.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
