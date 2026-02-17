@@ -26,7 +26,8 @@
     "score:custom": "node scripts/score-places.js --percentile",
     "import-research": "node scripts/import-research.js",
     "import-research:dry": "node scripts/import-research.js --dry-run",
-    "import-research:keep": "node scripts/import-research.js --keep-existing"
+    "import-research:keep": "node scripts/import-research.js --keep-existing",
+    "import-research:revert": "node scripts/import-research.js --revert"
   },
   "browserslist": {
     "production": [

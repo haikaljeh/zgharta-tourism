@@ -10,6 +10,7 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY } = requireEnv([
 ]);
 
 const KEEP_EXISTING = process.argv.includes('--keep-existing');
+const REVERT = process.argv.includes('--revert');
 
 // Parse --percentile flag (must match the value used during scoring)
 function getPercentile() {
@@ -23,6 +24,14 @@ function getPercentile() {
 
 const PLACE_CATEGORIES = new Set(['religious', 'nature', 'heritage']);
 const BUSINESS_CATEGORIES = new Set(['restaurant', 'hotel', 'cafe', 'shop']);
+
+const REQUIRED_COLUMNS_SQL = `
+-- Run these in Supabase SQL editor before importing:
+ALTER TABLE places ADD COLUMN IF NOT EXISTS active boolean DEFAULT true;
+ALTER TABLE places ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS active boolean DEFAULT true;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+`.trim();
 
 function mapPriceRange(priceLevel) {
   if (priceLevel == null) return null;
@@ -51,7 +60,58 @@ function formatOpenHours(openingHours) {
   return openingHours.weekday_text.join('; ');
 }
 
+// Check that active/source columns exist by attempting a filtered query
+async function checkColumns(supabase) {
+  const { error: pErr } = await supabase.from('places').select('active,source').limit(1);
+  if (pErr) return false;
+  const { error: bErr } = await supabase.from('businesses').select('active,source').limit(1);
+  if (bErr) return false;
+  return true;
+}
+
+async function handleRevert(supabase) {
+  console.log('=== Reverting to manual data ===\n');
+
+  if (DRY_RUN) {
+    console.log('DRY RUN — would execute:');
+    console.log("  UPDATE places SET active = true WHERE source = 'manual'");
+    console.log("  UPDATE businesses SET active = true WHERE source = 'manual'");
+    console.log("  UPDATE places SET active = false WHERE source = 'google_research'");
+    console.log("  UPDATE businesses SET active = false WHERE source = 'google_research'");
+    return;
+  }
+
+  // Activate manual rows
+  const { data: p1 } = await supabase.from('places').update({ active: true }).eq('source', 'manual').select('id');
+  const { data: b1 } = await supabase.from('businesses').update({ active: true }).eq('source', 'manual').select('id');
+
+  // Deactivate research rows
+  const { data: p2 } = await supabase.from('places').update({ active: false }).eq('source', 'google_research').select('id');
+  const { data: b2 } = await supabase.from('businesses').update({ active: false }).eq('source', 'google_research').select('id');
+
+  console.log(`Activated ${(p1 || []).length} manual places, ${(b1 || []).length} manual businesses.`);
+  console.log(`Deactivated ${(p2 || []).length} research places, ${(b2 || []).length} research businesses.`);
+  console.log('\nRevert complete! Manual data is now active.');
+}
+
 async function main() {
+  const supabase = createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Check required columns exist
+  const hasColumns = await checkColumns(supabase);
+  if (!hasColumns) {
+    console.error('Required columns (active, source) not found on places/businesses tables.');
+    console.error('Run the following SQL in your Supabase SQL editor:\n');
+    console.error(REQUIRED_COLUMNS_SQL);
+    process.exit(1);
+  }
+
+  // Handle --revert mode
+  if (REVERT) {
+    await handleRevert(supabase);
+    return;
+  }
+
   const scoredPath = path.join(__dirname, '..', 'data', 'scored-places.json');
 
   if (!fs.existsSync(scoredPath)) {
@@ -98,6 +158,8 @@ async function main() {
         featured: isFeatured,
         open_hours: formatOpenHours(p.opening_hours),
         google_place_id: p.place_id,
+        active: true,
+        source: 'google_research',
       });
     } else if (BUSINESS_CATEGORIES.has(p.category)) {
       businessRows.push({
@@ -116,6 +178,8 @@ async function main() {
         price_range: mapPriceRange(p.price_level),
         featured: isFeatured,
         google_place_id: p.place_id,
+        active: true,
+        source: 'google_research',
       });
     }
   }
@@ -135,11 +199,10 @@ async function main() {
 
   if (DRY_RUN) {
     console.log('\nDRY RUN — no database changes made.');
-    console.log(`\nWould ${KEEP_EXISTING ? 'upsert' : 'DELETE ALL existing data and insert'}:`);
+    console.log(`\nWould ${KEEP_EXISTING ? 'upsert (keeping existing active)' : 'deactivate existing and upsert'}:`);
     console.log(`  ${placeRows.length} places`);
     console.log(`  ${businessRows.length} businesses`);
 
-    // Show a sample
     if (placeRows.length > 0) {
       console.log('\nSample place row:');
       console.log(JSON.stringify(placeRows[0], null, 2));
@@ -151,53 +214,51 @@ async function main() {
     return;
   }
 
-  const supabase = createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  // Step a/b: Tag existing rows with source = 'manual' where null
+  await supabase.from('places').update({ source: 'manual' }).is('source', null);
+  await supabase.from('businesses').update({ source: 'manual' }).is('source', null);
+  console.log('\nTagged existing rows with source = "manual".');
 
+  // Step c: Deactivate all existing rows (unless --keep-existing)
+  let deactivatedPlaces = 0;
+  let deactivatedBiz = 0;
   if (!KEEP_EXISTING) {
-    console.log('\nDeleting existing data...');
-
-    const { error: delPlaces } = await supabase.from('places').delete().neq('id', 0);
-    if (delPlaces) { console.error('Failed to delete places:', delPlaces.message); process.exit(1); }
-    console.log('  Deleted all rows from places table.');
-
-    const { error: delBiz } = await supabase.from('businesses').delete().neq('id', 0);
-    if (delBiz) { console.error('Failed to delete businesses:', delBiz.message); process.exit(1); }
-    console.log('  Deleted all rows from businesses table.');
+    const { data: dp } = await supabase.from('places').update({ active: false }).eq('active', true).select('id');
+    const { data: db } = await supabase.from('businesses').update({ active: false }).eq('active', true).select('id');
+    deactivatedPlaces = (dp || []).length;
+    deactivatedBiz = (db || []).length;
+    console.log(`Deactivated ${deactivatedPlaces} places, ${deactivatedBiz} businesses.`);
   }
 
-  // Insert places
+  // Step d: Upsert new research data
+  let insertedPlaces = 0;
+  let insertedBiz = 0;
+
   if (placeRows.length > 0) {
-    if (KEEP_EXISTING) {
-      // Upsert by google_place_id
-      const { error } = await supabase.from('places').upsert(placeRows, { onConflict: 'google_place_id' });
-      if (error) { console.error('Failed to upsert places:', error.message); process.exit(1); }
-    } else {
-      // Batch insert in chunks of 50
-      for (let i = 0; i < placeRows.length; i += 50) {
-        const batch = placeRows.slice(i, i + 50);
-        const { error } = await supabase.from('places').insert(batch);
-        if (error) { console.error(`Failed to insert places batch ${i}:`, error.message); process.exit(1); }
-      }
+    for (let i = 0; i < placeRows.length; i += 50) {
+      const batch = placeRows.slice(i, i + 50);
+      const { error } = await supabase.from('places').upsert(batch, { onConflict: 'google_place_id' });
+      if (error) { console.error(`Failed to upsert places batch ${i}:`, error.message); process.exit(1); }
     }
-    console.log(`Inserted ${placeRows.length} places.`);
+    insertedPlaces = placeRows.length;
+    console.log(`Upserted ${insertedPlaces} places.`);
   }
 
-  // Insert businesses
   if (businessRows.length > 0) {
-    if (KEEP_EXISTING) {
-      const { error } = await supabase.from('businesses').upsert(businessRows, { onConflict: 'google_place_id' });
-      if (error) { console.error('Failed to upsert businesses:', error.message); process.exit(1); }
-    } else {
-      for (let i = 0; i < businessRows.length; i += 50) {
-        const batch = businessRows.slice(i, i + 50);
-        const { error } = await supabase.from('businesses').insert(batch);
-        if (error) { console.error(`Failed to insert businesses batch ${i}:`, error.message); process.exit(1); }
-      }
+    for (let i = 0; i < businessRows.length; i += 50) {
+      const batch = businessRows.slice(i, i + 50);
+      const { error } = await supabase.from('businesses').upsert(batch, { onConflict: 'google_place_id' });
+      if (error) { console.error(`Failed to upsert businesses batch ${i}:`, error.message); process.exit(1); }
     }
-    console.log(`Inserted ${businessRows.length} businesses.`);
+    insertedBiz = businessRows.length;
+    console.log(`Upserted ${insertedBiz} businesses.`);
   }
 
-  console.log('\nImport complete!');
+  // Step e: Summary
+  console.log('\n=== Final Summary ===');
+  console.log(`Existing rows deactivated: ${deactivatedPlaces} places, ${deactivatedBiz} businesses`);
+  console.log(`Research rows upserted: ${insertedPlaces} places, ${insertedBiz} businesses`);
+  console.log('\nImport complete! Use --revert to restore manual data.');
 }
 
 main().catch(err => { console.error('Fatal error:', err); process.exit(1); });

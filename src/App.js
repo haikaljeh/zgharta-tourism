@@ -67,8 +67,8 @@ export default function ZghartaTourismApp() {
     try {
       if (!supabase) throw new Error('Supabase not configured — check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY');
       const [pRes, bRes, eRes] = await Promise.all([
-        supabase.from('places').select('*').order('featured', { ascending: false }),
-        supabase.from('businesses').select('*').order('rating', { ascending: false }),
+        supabase.from('places').select('*').eq('active', true).order('featured', { ascending: false }),
+        supabase.from('businesses').select('*').eq('active', true).order('rating', { ascending: false }),
         supabase.from('events').select('*').order('event_date', { ascending: true })
       ]);
       if (pRes.error) throw pRes.error;
