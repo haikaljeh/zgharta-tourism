@@ -18,29 +18,14 @@
 //   ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;
 // =============================================
 
-const { createClient } = require('@supabase/supabase-js');
+const { requireEnv, DRY_RUN } = require('./lib/env');
+const { createSupabaseClient } = require('./lib/supabase');
+const { nearbySearch, getDetails, photoUrl } = require('./lib/googlePlaces');
+const { sleep, FailureTracker } = require('./lib/utils');
 
-// ---- ENV VALIDATION ----
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-
-const missing = [];
-if (!SUPABASE_URL) missing.push('SUPABASE_URL');
-if (!SUPABASE_SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
-if (!GOOGLE_API_KEY) missing.push('GOOGLE_API_KEY');
-if (missing.length > 0) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`);
-  console.error('Copy .env.example to .env and fill in your values.');
-  process.exit(1);
-}
-
-const DRY_RUN = process.argv.includes('--dry-run');
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
+const env = requireEnv(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GOOGLE_API_KEY']);
+const supabase = createSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const DELAY_MS = 300;
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Areas to search — centers of each village
 const SEARCH_AREAS = [
@@ -75,18 +60,13 @@ const SEARCH_QUERIES = [
   { query: 'souvenir', category: 'shop' },
 ];
 
-// Google Places API URLs
-const NEARBY_SEARCH_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
-const PLACE_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
-const PLACE_PHOTO_URL = 'https://maps.googleapis.com/maps/api/place/photo';
-
 // Map Google price_level to our price_range
 function mapPriceLevel(level) {
   if (level === 0 || level === 1) return '$';
   if (level === 2) return '$$';
   if (level === 3) return '$$$';
   if (level === 4) return '$$$$';
-  return '$$'; // default
+  return '$$';
 }
 
 // Guess which village a place belongs to based on coordinates
@@ -100,99 +80,72 @@ function guessVillage(lat, lng) {
   return closest;
 }
 
-async function searchNearby(lat, lng, radius, keyword) {
-  const url = `${NEARBY_SEARCH_URL}?location=${lat},${lng}&radius=${radius}&keyword=${encodeURIComponent(keyword)}&key=${GOOGLE_API_KEY}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    return data.results || [];
-  } catch (err) {
-    console.error(`  Search failed: ${err.message}`);
-    return [];
-  }
-}
-
-async function getPlaceDetails(placeId) {
-  const fields = 'name,formatted_phone_number,international_phone_number,website,rating,price_level,photos,geometry,types,editorial_summary,opening_hours';
-  const url = `${PLACE_DETAILS_URL}?place_id=${placeId}&fields=${fields}&key=${GOOGLE_API_KEY}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    return data.result || null;
-  } catch (err) {
-    console.error(`  Details failed: ${err.message}`);
-    return null;
-  }
-}
-
-function getPhotoUrl(photoReference, maxWidth = 800) {
-  return `${PLACE_PHOTO_URL}?maxwidth=${maxWidth}&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
-}
-
 async function main() {
   console.log('Zgharta Tourism — Bulk Business Importer');
   console.log('==============================================');
   if (DRY_RUN) console.log('** DRY RUN — no database writes **');
   console.log('');
 
-  // Track unique places by Google place_id to avoid duplicates
   const seenPlaceIds = new Set();
   const allBusinesses = [];
+  const failures = new FailureTracker();
 
-  // Search each area x each query
   for (const area of SEARCH_AREAS) {
     for (const sq of SEARCH_QUERIES) {
       console.log(`Searching "${sq.query}" in ${area.name}...`);
       await sleep(DELAY_MS);
 
-      const results = await searchNearby(area.lat, area.lng, area.radius, sq.query);
-      console.log(`   Found ${results.length} results`);
+      const searchRes = await nearbySearch(area.lat, area.lng, area.radius, sq.query, env.GOOGLE_API_KEY);
+      if (!searchRes.ok) {
+        console.log(`   Search failed${searchRes.message ? `: ${searchRes.message}` : ''}`);
+        failures.add(searchRes.errorType || 'SEARCH_FAILED', `${sq.query} in ${area.name}`);
+        continue;
+      }
+      console.log(`   Found ${searchRes.results.length} results`);
 
-      for (const place of results) {
+      for (const place of searchRes.results) {
         if (seenPlaceIds.has(place.place_id)) continue;
         seenPlaceIds.add(place.place_id);
 
-        // Get full details
         await sleep(DELAY_MS);
-        const details = await getPlaceDetails(place.place_id);
-        if (!details) continue;
+        const detailFields = 'name,formatted_phone_number,international_phone_number,website,rating,price_level,photos,geometry,types,editorial_summary,opening_hours';
+        const detailsRes = await getDetails(place.place_id, env.GOOGLE_API_KEY, detailFields);
+        if (!detailsRes.ok || !detailsRes.result) {
+          failures.add(detailsRes.errorType || 'DETAILS_FAILED', place.name);
+          continue;
+        }
 
+        const details = detailsRes.result;
         const lat = details.geometry?.location?.lat || place.geometry?.location?.lat;
         const lng = details.geometry?.location?.lng || place.geometry?.location?.lng;
         const village = guessVillage(lat, lng);
 
-        // Get photo URL
         let imageUrl = null;
-        if (details.photos && details.photos.length > 0) {
-          imageUrl = getPhotoUrl(details.photos[0].photo_reference);
+        if (details.photos?.length > 0) {
+          imageUrl = photoUrl(details.photos[0].photo_reference, env.GOOGLE_API_KEY);
         }
 
-        // Get phone number
         const phone = details.international_phone_number || details.formatted_phone_number || null;
-
-        // Get description
         const description = details.editorial_summary?.overview || null;
 
-        const business = {
+        allBusinesses.push({
           name: place.name,
           name_ar: null,
           category: sq.category,
-          village: village,
-          description: description,
+          village,
+          description,
           description_ar: null,
           image_url: imageUrl,
           latitude: lat,
           longitude: lng,
           rating: details.rating || place.rating || null,
           price_range: mapPriceLevel(details.price_level),
-          phone: phone,
+          phone,
           website: details.website || null,
           specialties: null,
           verified: true,
           google_place_id: place.place_id,
-        };
-
-        allBusinesses.push(business);
+        });
         console.log(`   + ${place.name} (${sq.category}) — ${village}`);
       }
     }
@@ -202,10 +155,10 @@ async function main() {
 
   if (allBusinesses.length === 0) {
     console.log('No businesses found. Check your API key and that Places API is enabled.');
+    failures.print();
     process.exit(0);
   }
 
-  // Show summary before importing
   const counts = {};
   allBusinesses.forEach(b => { counts[b.category] = (counts[b.category] || 0) + 1; });
   console.log('Category breakdown:');
@@ -216,13 +169,12 @@ async function main() {
     console.log('==============================================');
     console.log(`DRY RUN complete. ${allBusinesses.length} businesses would be upserted.`);
     console.log('==============================================');
+    failures.print();
     return;
   }
 
-  // Upsert in batches of 20
   const batchSize = 20;
   let inserted = 0;
-  let failed = 0;
 
   for (let i = 0; i < allBusinesses.length; i += batchSize) {
     const batch = allBusinesses.slice(i, i + batchSize);
@@ -231,14 +183,13 @@ async function main() {
       .upsert(batch, { onConflict: 'google_place_id' });
     if (error) {
       console.error(`Batch upsert failed: ${error.message}`);
-      // Try one by one
       for (const biz of batch) {
         const { error: singleErr } = await supabase
           .from('businesses')
           .upsert(biz, { onConflict: 'google_place_id' });
         if (singleErr) {
           console.error(`   Skipped "${biz.name}": ${singleErr.message}`);
-          failed++;
+          failures.add('DB_UPSERT_FAILED', biz.name);
         } else {
           inserted++;
         }
@@ -250,8 +201,11 @@ async function main() {
   }
 
   console.log('\n==============================================');
-  console.log(`Done! upserted: ${inserted}, failed: ${failed}`);
+  console.log(`Done! upserted: ${inserted}, failed: ${failures.count}`);
   console.log('==============================================');
+
+  failures.print();
+
   console.log('\nTips:');
   console.log('   - Arabic names (name_ar) are blank — add manually or use a translation API');
   console.log('   - Photo URLs expire after a few months — re-run periodically');

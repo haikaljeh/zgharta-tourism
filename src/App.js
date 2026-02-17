@@ -3,10 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus } from 'lucide-react';
 import CATEGORIES, { StickCross, catIcons, catColors, catBgs, markerColors, mutedCatColors, catEmoji } from './config/categories';
 
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY || '';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const PlaceImage = ({ src, category, name, style = {} }) => {
   const [err, setErr] = useState(false);
@@ -55,15 +55,17 @@ export default function ZghartaTourismApp() {
 
   const fetchData = async () => {
     // Try showing cached data immediately while we fetch fresh
+    let hasValidCache = false;
     try {
       const cached = localStorage.getItem('zgharta-data');
       if (cached) {
         const { places: cp, businesses: cb, events: ce, ts } = JSON.parse(cached);
-        if (cp?.length && Date.now() - ts < 86400000) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); }
+        if (cp?.length && Date.now() - ts < 86400000) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); hasValidCache = true; }
       }
     } catch {}
     setError(null);
     try {
+      if (!supabase) throw new Error('Supabase not configured — check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY');
       const [pRes, bRes, eRes] = await Promise.all([
         supabase.from('places').select('*').order('featured', { ascending: false }),
         supabase.from('businesses').select('*').order('rating', { ascending: false }),
@@ -79,8 +81,8 @@ export default function ZghartaTourismApp() {
       // Cache for offline use
       try { localStorage.setItem('zgharta-data', JSON.stringify({ places: newPlaces, businesses: newBiz, events: newEvents, ts: Date.now() })); } catch {}
     } catch (err) {
-      // If we have cached data, don't show error — just show offline banner
-      if (places.length === 0) setError(err.message || 'Failed to load');
+      // Only show error if we have no cached data to fall back on
+      if (!hasValidCache) setError(err.message || 'Failed to load');
     }
     finally { setLoading(false); }
   };
@@ -94,7 +96,7 @@ export default function ZghartaTourismApp() {
 
   // Distance between two coords in km
   const getDistance = (a, b) => {
-    if (!a?.lat || !b?.lat) return Infinity;
+    if (a?.lat == null || a?.lng == null || b?.lat == null || b?.lng == null) return Infinity;
     const R = 6371;
     const dLat = (b.lat - a.lat) * Math.PI / 180;
     const dLng = (b.lng - a.lng) * Math.PI / 180;
