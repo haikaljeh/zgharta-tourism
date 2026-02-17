@@ -40,6 +40,11 @@ zgharta-tourism/
 ├── .env.example            # Template listing all required env vars
 ├── .gitignore              # Ignores node_modules, build, .env, *.save
 ├── scripts/
+│   ├── lib/
+│   │   ├── env.js            # Shared env validation + DRY_RUN flag
+│   │   ├── supabase.js       # Shared Supabase admin client factory
+│   │   ├── googlePlaces.js   # Google Places API with retry/backoff
+│   │   └── utils.js          # sleep() + FailureTracker for grouped reporting
 │   ├── import-businesses.js  # Google Places API → Supabase (upsert)
 │   ├── update-websites.js    # Find/add website URLs for businesses
 │   └── fetch-photos.js       # Fetch Google Places photos → Supabase
@@ -104,9 +109,9 @@ Canonical source of truth for all 7 categories. Each category has:
 
 ### Helper Functions
 - `t(en, ar)` — Inline translation helper based on `lang`
-- `fetchData()` — Loads from Supabase with localStorage cache fallback (`zgharta-data`)
+- `fetchData()` — Loads from Supabase with localStorage cache fallback (`zgharta-data`). Uses `hasValidCache` local boolean to avoid stale closure over `places` state — only shows error when no valid cache exists.
 - `toggleFav(id, type)` / `isFav(id, type)` — Favorites management
-- `getDistance(a, b)` — Haversine distance in km
+- `getDistance(a, b)` — Haversine distance in km. Uses nullish checks (`== null`) for coordinates so lat/lng of 0 isn't treated as missing.
 - `getNearby(coords, excludeId, limit)` — Sorted nearby places/businesses
 - `shareLoc(name, village, coords)` — Web Share API / clipboard fallback
 - `showOnMap(coords)` — Navigate to map tab
@@ -199,11 +204,17 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<in .env>
 GOOGLE_API_KEY=<in .env>
 ```
-Hardcoded fallbacks exist for Supabase URL and anon key in `App.js` (public client-side keys). See `.env.example` for the full template with comments.
+**No hardcoded fallbacks** — all env vars must be set via `.env` or hosting environment. If `REACT_APP_SUPABASE_URL` or `REACT_APP_SUPABASE_ANON_KEY` are missing, the Supabase client is `null` and `fetchData()` shows a descriptive error (unless valid cache exists). See `.env.example` for the full template with comments.
 
 ## Scripts (scripts/)
 
-All scripts read credentials from environment variables (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_API_KEY`). Each validates required env vars at startup and exits with a clear error if any are missing.
+All scripts read credentials from environment variables (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_API_KEY`). Shared infrastructure lives in `scripts/lib/`.
+
+### Shared Libraries (scripts/lib/)
+- **`env.js`** — `requireEnv(names)` validates required env vars at startup and exits with a clear error if any are missing. Exports `DRY_RUN` boolean from `--dry-run` argv flag.
+- **`supabase.js`** — `createSupabaseClient(url, serviceKey)` factory wrapper around `@supabase/supabase-js`.
+- **`googlePlaces.js`** — Centralized Google Places API functions: `findPlace()`, `nearbySearch()`, `getDetails()`, `photoUrl()`. All API calls go through `placesRequest()` which handles Google API status codes (`OK`, `ZERO_RESULTS`, `OVER_QUERY_LIMIT`, `REQUEST_DENIED`, `INVALID_REQUEST`, `UNKNOWN_ERROR`), retries retryable errors (`OVER_QUERY_LIMIT`, `UNKNOWN_ERROR`) with exponential backoff (1s/2s/4s, max 3 retries), and returns structured results: `{ ok, status, data, errorType, message }`.
+- **`utils.js`** — `sleep(ms)` helper + `FailureTracker` class that groups failures by reason for end-of-run reporting (prints grouped counts with up to 5 item names per group).
 
 ### import-businesses.js
 - Searches Google Places API across 14 village areas for restaurants, hotels, cafes, shops
@@ -221,7 +232,7 @@ All scripts read credentials from environment variables (`SUPABASE_URL`, `SUPABA
 - Skips items that already have images
 - Supports `--dry-run` flag
 
-All scripts print a summary at the end: updated, skipped, failed counts.
+All scripts print a summary at the end: updated, skipped, failed counts + grouped failure breakdown (by reason) when failures occur.
 
 ## Key Patterns & Conventions
 
@@ -248,7 +259,8 @@ All scripts print a summary at the end: updated, skipped, failed counts.
 - localStorage cache key: `zgharta-data` (JSON with `places`, `businesses`, `events`, `ts`)
 - Shows cached data immediately (if <24 hours old), then fetches fresh in background
 - **Cache expiration:** 24 hours (`Date.now() - ts < 86400000`); stale cache is ignored
-- If fetch fails and cache exists, app works offline silently
+- If fetch fails and valid cache was loaded, app works offline silently (no error shown). Error only displayed when no valid cache exists — tracked via `hasValidCache` local boolean (avoids stale closure over `places` state).
+- If Supabase client is `null` (env vars missing), `fetchData()` throws a descriptive configuration error
 
 ### Shared Style Constants
 - `eventCatStyles` — event category color map (used in EventsScreen + EventModal)
@@ -323,8 +335,8 @@ npm run fetch-photos:dry        # Preview without writing to DB
 ```
 
 ## Security
-- **Client-side keys** (Supabase anon key, Google Maps key) have hardcoded fallbacks in `App.js` — these are public keys with Row Level Security / API restrictions
-- **Server-side keys** (Supabase service role key, Google API key for Places) are **never** hardcoded — scripts read from `process.env` and exit with a clear error if missing
+- **No hardcoded secrets anywhere** — all keys (client and server) are read from environment variables. If client-side Supabase env vars are missing, the app falls back to cached data or shows a configuration error.
+- **Server-side keys** (Supabase service role key, Google API key for Places) are validated at script startup via `requireEnv()` — scripts exit with a clear error if any are missing
 - `.env` is gitignored; `.env.example` documents all required variables
 - `*.save` files are gitignored to prevent accidental credential leaks from editor backups
 
