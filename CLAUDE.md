@@ -38,13 +38,21 @@ zgharta-tourism/
 ├── vercel.json             # SPA rewrite for Vercel
 ├── .env                    # Environment variables (not committed)
 ├── .env.example            # Template listing all required env vars
-├── .gitignore              # Ignores node_modules, build, .env, *.save
+├── .gitignore              # Ignores node_modules, build, .env, *.save, data/*.json, data/*.md
+├── data/
+│   ├── .gitkeep              # Keeps directory in git
+│   ├── raw-places.json       # Raw Google Places API results (gitignored)
+│   ├── scored-places.json    # Bayesian-scored places (gitignored)
+│   └── top-places-report.md  # Ranked report by category (gitignored)
 ├── scripts/
 │   ├── lib/
 │   │   ├── env.js            # Shared env validation + DRY_RUN flag
 │   │   ├── supabase.js       # Shared Supabase admin client factory
 │   │   ├── googlePlaces.js   # Google Places API with retry/backoff
 │   │   └── utils.js          # sleep() + FailureTracker for grouped reporting
+│   ├── research-places.js    # Market research: Google Places Text Search → data/raw-places.json
+│   ├── score-places.js       # Bayesian scoring + ranked report → data/scored-places.json
+│   ├── import-research.js    # Import scored data → Supabase (soft delete strategy)
 │   ├── import-businesses.js  # Google Places API → Supabase (upsert)
 │   ├── update-websites.js    # Find/add website URLs for businesses
 │   └── fetch-photos.js       # Fetch Google Places photos → Supabase
@@ -109,7 +117,7 @@ Canonical source of truth for all 7 categories. Each category has:
 
 ### Helper Functions
 - `t(en, ar)` — Inline translation helper based on `lang`
-- `fetchData()` — Loads from Supabase with localStorage cache fallback (`zgharta-data`). Uses `hasValidCache` local boolean to avoid stale closure over `places` state — only shows error when no valid cache exists.
+- `fetchData()` — Loads from Supabase with localStorage cache fallback (`zgharta-data`). Filters by `.eq('active', true)` on places and businesses. Uses `hasValidCache` local boolean to avoid stale closure over `places` state — only shows error when no valid cache exists.
 - `toggleFav(id, type)` / `isFav(id, type)` — Favorites management
 - `getDistance(a, b)` — Haversine distance in km. Uses nullish checks (`== null`) for coordinates so lat/lng of 0 isn't treated as missing.
 - `getNearby(coords, excludeId, limit)` — Sorted nearby places/businesses
@@ -154,6 +162,9 @@ Canonical source of truth for all 7 categories. Each category has:
 | `longitude` | `coordinates.lng` | |
 | `open_hours` | `openHours` | Opening hours string |
 | `featured` | `featured` | Boolean, sorted descending |
+| `active` | — | Boolean, default `true`. App filters by `active = true`. Used for soft delete. |
+| `source` | — | `'manual'` \| `'google_research'`. Tracks data origin for revert capability. |
+| `google_place_id` | — | Unique, used as upsert conflict key by import-research script |
 
 ### `businesses` table
 | Column | Maps to | Notes |
@@ -174,7 +185,9 @@ Canonical source of truth for all 7 categories. Each category has:
 | `website` | `website` | |
 | `specialties` | `specialties` | Array of strings |
 | `verified` | `verified` | Boolean |
-| `google_place_id` | — | Unique, used as upsert conflict key by import script |
+| `active` | — | Boolean, default `true`. App filters by `active = true`. Used for soft delete. |
+| `source` | — | `'manual'` \| `'google_research'`. Tracks data origin for revert capability. |
+| `google_place_id` | — | Unique, used as upsert conflict key by import scripts |
 
 ### `events` table
 | Column | Maps to | Notes |
@@ -216,18 +229,47 @@ All scripts read credentials from environment variables (`SUPABASE_URL`, `SUPABA
 - **`googlePlaces.js`** — Centralized Google Places API functions: `findPlace()`, `nearbySearch()`, `getDetails()`, `photoUrl()`. All API calls go through `placesRequest()` which handles Google API status codes (`OK`, `ZERO_RESULTS`, `OVER_QUERY_LIMIT`, `REQUEST_DENIED`, `INVALID_REQUEST`, `UNKNOWN_ERROR`), retries retryable errors (`OVER_QUERY_LIMIT`, `UNKNOWN_ERROR`) with exponential backoff (1s/2s/4s, max 3 retries), and returns structured results: `{ ok, status, data, errorType, message }`.
 - **`utils.js`** — `sleep(ms)` helper + `FailureTracker` class that groups failures by reason for end-of-run reporting (prints grouped counts with up to 5 item names per group).
 
-### import-businesses.js
+### Market Research Pipeline (3-step)
+
+#### research-places.js
+- Queries Google Places Text Search API across 53 targeted queries for Zgharta Caza
+- Covers: restaurants, cafes, hotels, shops, bakeries, grocery stores, churches, monasteries, shrines, convents, parks, nature reserves, hiking, heritage sites, museums, tourist attractions, and more
+- Handles pagination (`next_page_token` with 2s delay), fetches Place Details for each result
+- Deduplicates by `place_id`, filters by bounding box (lat 34.24–34.43, lng 35.82–36.01)
+- Excludes irrelevant types (gas stations, ATMs, etc.), discards 0-review places
+- Categorizes into 7 app categories based on Google `types` array
+- Saves to `data/raw-places.json`; prints API cost estimate at end
+- Supports `--dry-run` flag
+
+#### score-places.js
+- Reads `data/raw-places.json`, applies Bayesian weighted rating: `score = (v/(v+m))*R + (m/(v+m))*C` (m=10)
+- Generates `data/top-places-report.md` with ranked tables per category (top N%), bottom 25%, honorable mentions
+- Warns if top count is outside 80–150 range
+- Saves scored data to `data/scored-places.json`
+- Supports `--percentile N` flag (default 10, currently using 60)
+
+#### import-research.js
+- Imports top percentile from `data/scored-places.json` into Supabase using **soft delete strategy**:
+  1. Tags existing rows with `source = 'manual'` where null
+  2. Deactivates all existing rows (`active = false`)
+  3. Upserts new research data with `active = true, source = 'google_research'`
+- Old data is hidden but fully recoverable
+- Checks for required columns (`active`, `source`) at startup; prints SQL and exits if missing
+- Supports `--dry-run`, `--keep-existing` (skip deactivation), `--revert` (restore manual data instantly), `--percentile N`
+
+### Legacy Scripts (still functional)
+
+#### import-businesses.js
 - Searches Google Places API across 14 village areas for restaurants, hotels, cafes, shops
 - Uses **upsert** on `google_place_id` conflict key (idempotent — safe to re-run)
-- Requires: `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;`
 - Supports `--dry-run` flag to preview without writing
 
-### update-websites.js
+#### update-websites.js
 - Finds and adds missing website URLs and phone numbers for existing businesses
 - Only updates records that are missing website or phone
 - Supports `--dry-run` flag
 
-### fetch-photos.js
+#### fetch-photos.js
 - Fetches Google Places photos for places and businesses missing `image_url`
 - Skips items that already have images
 - Supports `--dry-run` flag
@@ -294,12 +336,13 @@ All scripts print a summary at the end: updated, skipped, failed counts + groupe
 - **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
 - **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
 - **Category filter chips:** Horizontal scrollable row of pill-shaped chips with icons, bilingual labels (from `CATEGORIES`), multi-select, color-coded active states, visible outline borders on inactive chips (fontWeight 700)
-- **Swipeable card carousel:** Horizontal scroll-snap carousel of image-background cards at bottom of map (`bottom: 56px`). Cards show top 8 places/businesses in viewport (updated via `idle` listener). Selected marker always injected into card list. Cards persist when viewport is empty (only updates when new results > 0). Full-bleed images with dark gradient overlay, frosted heart buttons, white text.
-- **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
+- **Swipeable card carousel:** Horizontal scroll-snap carousel of image-background cards at bottom of map (`bottom: 72px`). Cards show top 8 places/businesses in viewport (updated via `idle` listener). Selected marker always injected into card list. Cards persist when viewport is empty (only updates when new results > 0). Full-bleed images with dark gradient overlay, frosted heart buttons, white text.
+- **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 234px` (visible) and `bottom: 80px` (hidden). Tapping a marker auto-shows cards.
+- **Map control button styling:** Locate-me and card toggle buttons share polished styling: `rgba(255,255,255,0.9)` background, `1.5px solid rgba(16,185,129,0.25)` emerald border, `0 2px 10px rgba(0,0,0,0.15)` shadow, `blur(8px)` backdrop. Scale to 0.93 on press via pointer events for tactile feel. Locate-me button gets blue-tinted background (`rgba(219,234,254,0.85)`) when geoActive.
 - **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
 - **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, marker tap, or "Back to Zgharta" button.
-- **Back to Zgharta pill:** Floating frosted glass pill (Compass icon + "Zgharta Caza"/"زغرتا") appears when map center drifts outside the caza bounding box. Horizontally centered between locate-me and carousel toggle buttons, same `bottom` position and transition. On tap: pans to default center at zoom 13. Fades in/out via opacity transition, tracked by `outsideBounds` state updated on `idle` event.
+- **Back to Zgharta pill:** Floating frosted glass pill (Compass icon + "Zgharta Caza"/"زغرتا") appears when map center drifts outside the caza bounding box OR zoom drops below 11. Styled with emerald border (`1.5px solid rgba(16,185,129,0.3)`), matching shadow and blur. Horizontally centered between locate-me and carousel toggle buttons, same `bottom` position and transition. On tap: pans to default center at zoom 13. Fades in/out via opacity transition, tracked by `outsideBounds` state updated on `idle` event. Gentle pulsing emerald glow animation (`homePulse` keyframe, 2s infinite) when visible — expanding ring that fades out like a radar ping. Pulse stops when button hides.
 - **Zgharta caza boundary polygon:** Fetched at runtime from OpenStreetMap Nominatim API (`polygon_geojson=1`) on map init. Handles both `Polygon` and `MultiPolygon` GeoJSON types. Stored in `boundaryRef`. Emerald green stroke (0.75 opacity, weight 4) and subtle fill (0.05 opacity). `clickable: false`, `zIndex: 0`. Bounding box computed from API response and stored in `cazaBoundsRef` — used by "Back to Zgharta" pill and geolocation check. Fallback bounds `{minLat: 34.26, maxLat: 34.43, minLng: 35.83, maxLng: 36.01}` if API fails. Single request, `User-Agent: ZghartaTourismApp/1.0` per Nominatim policy.
 - **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
 - **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
@@ -325,7 +368,17 @@ npm start          # Dev server (CRA, port 3000)
 npm run build      # Production build
 git push origin main   # Auto-deploys to Vercel
 
-# Data import scripts (require SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY in env)
+# Market research pipeline (require GOOGLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY in env)
+npm run research                # Step 1: Collect data from Google Places API → data/raw-places.json
+npm run research:dry            # Preview queries and cost estimate without API calls
+npm run score                   # Step 2: Score and rank → data/scored-places.json + report
+npm run score -- --percentile 60  # Custom percentile cutoff (default 10)
+npm run import-research         # Step 3: Import top places into Supabase (soft delete)
+npm run import-research:dry     # Preview what would be imported
+npm run import-research:keep    # Upsert without deactivating existing data
+npm run import-research:revert  # Restore original manual data instantly
+
+# Legacy data scripts (require SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY in env)
 npm run import-businesses       # Import businesses from Google Places
 npm run import-businesses:dry   # Preview without writing to DB
 npm run update-websites         # Add missing website/phone data
