@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus } from 'lucide-react';
-import CATEGORIES, { StickCross, catIcons, catColors, catBgs, markerColors, mutedCatColors, catEmoji, getCategoryColor, getCategoryIcon } from './config/categories';
+import CATEGORIES, { StickCross, catIcons, catColors, catBgs, markerColors, mutedCatColors, catEmoji } from './config/categories';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
@@ -121,8 +121,6 @@ export default function ZghartaTourismApp() {
 
   // Show on map helper
   const showOnMap = () => { setSelPlace(null); setSelBiz(null); setTab('map'); };
-
-  // Category maps imported from config/categories.js
 
   const GuideScreen = () => {
     const topPlace = places.find(p => p.featured) || places[0];
@@ -535,7 +533,6 @@ export default function ZghartaTourismApp() {
   const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
-  // markerColors imported from config/categories.js
 
   const catIconPaths = {
     religious: { vb: '0 0 16 16', d: '<line x1="8" y1="1" x2="8" y2="15"/><line x1="3" y1="5" x2="13" y2="5"/>' },
@@ -553,7 +550,6 @@ export default function ZghartaTourismApp() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
   };
 
-  // mutedCatColors imported from config/categories.js
 
   const makeDotEl = (color, cat, fav) => {
     const el = document.createElement('div');
@@ -688,7 +684,7 @@ export default function ZghartaTourismApp() {
               }
             }
           } catch (err) {
-            console.warn('Failed to fetch Zgharta boundary, using fallback');
+            // Fallback bounds are already set in cazaBoundsRef
           }
         })();
       }
@@ -1016,7 +1012,6 @@ export default function ZghartaTourismApp() {
     Object.keys(g).forEach(c => { if (!ordered[c]) ordered[c] = g[c]; });
     return ordered;
   }, [allSaved]);
-  // catEmoji imported from config/categories.js
 
   const shareTrip = async () => {
     let text = `${t('My Zgharta Caza Trip', 'رحلتي في قضاء زغرتا')}:\n\n`;
