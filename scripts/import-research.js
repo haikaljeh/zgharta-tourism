@@ -176,7 +176,6 @@ async function main() {
         phone: p.formatted_phone_number || null,
         website: p.website || null,
         price_range: mapPriceRange(p.price_level),
-        featured: isFeatured,
         google_place_id: p.place_id,
         active: true,
         source: 'google_research',

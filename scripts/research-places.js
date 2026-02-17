@@ -10,27 +10,66 @@ const { GOOGLE_API_KEY } = requireEnv(['GOOGLE_API_KEY']);
 // --- Config ---
 
 const QUERIES = [
+  // Restaurants
   'restaurants in Zgharta Lebanon',
   'restaurants in Ehden Lebanon',
   'restaurants in Miziara Lebanon',
   'restaurants in Kfarsghab Lebanon',
+  // Cafes
   'cafes in Zgharta Lebanon',
   'cafes in Ehden Lebanon',
+  // Hotels
   'hotels in Zgharta Lebanon',
   'hotels in Ehden Lebanon',
   'hotels in Miziara Lebanon',
+  // Shops
   'shops in Zgharta Lebanon',
-  'things to do in Zgharta Lebanon',
-  'things to do in Ehden Lebanon',
-  'churches in Zgharta Lebanon',
-  'churches in Ehden Lebanon',
-  'parks in Zgharta Lebanon',
-  'nature in Ehden Lebanon',
-  'heritage sites Zgharta Lebanon',
   'bakeries in Zgharta Lebanon',
   'bakeries in Ehden Lebanon',
   'grocery stores in Zgharta Lebanon',
   'grocery stores in Ehden Lebanon',
+  // Religious — expanded
+  'churches in Zgharta Lebanon',
+  'churches in Ehden Lebanon',
+  'churches in Miziara Lebanon',
+  'churches in Kfarsghab Lebanon',
+  'monasteries in Zgharta Lebanon',
+  'monasteries in Ehden Lebanon',
+  'monasteries near Qadisha Valley Lebanon',
+  'shrines in Ehden Lebanon',
+  'convents in Zgharta district Lebanon',
+  'maronite churches north Lebanon Zgharta',
+  'mosques in Zgharta Lebanon',
+  // Nature — expanded
+  'parks in Zgharta Lebanon',
+  'nature in Ehden Lebanon',
+  'Horsh Ehden nature reserve',
+  'hiking trails Ehden Lebanon',
+  'hiking Qadisha Valley Lebanon',
+  'waterfalls near Ehden Lebanon',
+  'cedar forest north Lebanon',
+  'nature reserves north Lebanon Zgharta',
+  'lakes near Zgharta Lebanon',
+  'Bnachii lake Lebanon',
+  'valleys near Ehden Lebanon',
+  'camping Ehden Lebanon',
+  'outdoor activities Zgharta Lebanon',
+  'scenic viewpoints Ehden Lebanon',
+  // Heritage — expanded
+  'heritage sites Zgharta Lebanon',
+  'things to do in Zgharta Lebanon',
+  'things to do in Ehden Lebanon',
+  'historical sites Ehden Lebanon',
+  'museums in Zgharta Lebanon',
+  'museums in Ehden Lebanon',
+  'old souk Zgharta Lebanon',
+  'historical landmarks north Lebanon Zgharta',
+  'tourist attractions Ehden Lebanon',
+  'tourist attractions Zgharta Lebanon',
+  'archaeological sites Zgharta district Lebanon',
+  'Qadisha Valley heritage sites Lebanon',
+  'art galleries Zgharta Lebanon',
+  'cultural centers Ehden Lebanon',
 ];
 
 const BOUNDS = { minLat: 34.24, maxLat: 34.43, minLng: 35.82, maxLng: 36.01 };
