@@ -70,6 +70,22 @@ const QUERIES = [
   'Qadisha Valley heritage sites Lebanon',
   'art galleries Zgharta Lebanon',
   'cultural centers Ehden Lebanon',
+  // Supplementary — specific places and underserved areas
+  'Horsh Ehden Nature Reserve',
+  'Qozhaya monastery Lebanon',
+  'Bnachii lake Zgharta',
+  'Saydet el Hosn Ehden',
+  'Mar Mema church Ehden',
+  'Miziara shrine Lebanon',
+  'Qadisha valley hiking',
+  'wineries Zgharta Ehden',
+  'nightlife bars Ehden',
+  'historical sites Ehden Lebanon',
+  'attractions Miziara Lebanon',
+  'Kfarsghab Lebanon',
+  'Aachach Lebanon',
+  'Basloukit Lebanon',
+  'Arbet Qozhaya Lebanon',
 ];
 
 const BOUNDS = { minLat: 34.24, maxLat: 34.43, minLng: 35.82, maxLng: 36.01 };

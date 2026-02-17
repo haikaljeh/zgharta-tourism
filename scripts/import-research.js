@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { requireEnv, DRY_RUN } = require('./lib/env');
 const { createSupabaseClient } = require('./lib/supabase');
-const { photoUrl } = require('./lib/googlePlaces');
+const { photoUrl, placesRequest } = require('./lib/googlePlaces');
+const { sleep } = require('./lib/utils');
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY } = requireEnv([
   'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GOOGLE_API_KEY',
@@ -31,6 +32,8 @@ ALTER TABLE places ADD COLUMN IF NOT EXISTS active boolean DEFAULT true;
 ALTER TABLE places ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS active boolean DEFAULT true;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual';
+ALTER TABLE places ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;
 `.trim();
 
 function mapPriceRange(priceLevel) {
@@ -76,8 +79,8 @@ async function handleRevert(supabase) {
     console.log('DRY RUN — would execute:');
     console.log("  UPDATE places SET active = true WHERE source = 'manual'");
     console.log("  UPDATE businesses SET active = true WHERE source = 'manual'");
-    console.log("  UPDATE places SET active = false WHERE source = 'google_research'");
-    console.log("  UPDATE businesses SET active = false WHERE source = 'google_research'");
+    console.log("  UPDATE places SET active = false WHERE source != 'manual'");
+    console.log("  UPDATE businesses SET active = false WHERE source != 'manual'");
     return;
   }
 
@@ -85,13 +88,109 @@ async function handleRevert(supabase) {
   const { data: p1 } = await supabase.from('places').update({ active: true }).eq('source', 'manual').select('id');
   const { data: b1 } = await supabase.from('businesses').update({ active: true }).eq('source', 'manual').select('id');
 
-  // Deactivate research rows
-  const { data: p2 } = await supabase.from('places').update({ active: false }).eq('source', 'google_research').select('id');
-  const { data: b2 } = await supabase.from('businesses').update({ active: false }).eq('source', 'google_research').select('id');
+  // Deactivate research and curated rows
+  const { data: p2 } = await supabase.from('places').update({ active: false }).neq('source', 'manual').select('id');
+  const { data: b2 } = await supabase.from('businesses').update({ active: false }).neq('source', 'manual').select('id');
 
   console.log(`Activated ${(p1 || []).length} manual places, ${(b1 || []).length} manual businesses.`);
-  console.log(`Deactivated ${(p2 || []).length} research places, ${(b2 || []).length} research businesses.`);
+  console.log(`Deactivated ${(p2 || []).length} research/curated places, ${(b2 || []).length} research/curated businesses.`);
   console.log('\nRevert complete! Manual data is now active.');
+}
+
+// Look up a manual place via Google Places Find Place API to get exact coords and photo
+async function lookupManualPlace(entry) {
+  const findUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(entry.search_name)}&inputtype=textquery&fields=place_id,name,geometry,photos,formatted_address,rating,user_ratings_total,formatted_phone_number,website,opening_hours,editorial_summary,types&key=${GOOGLE_API_KEY}`;
+  const res = await placesRequest(findUrl);
+  if (!res.ok || !res.data.candidates || res.data.candidates.length === 0) return null;
+  return res.data.candidates[0];
+}
+
+// Load manual places from data/manual-places.json and enrich via Google API
+async function loadManualPlaces(existingPlaceIds) {
+  const manualPath = path.join(__dirname, '..', 'data', 'manual-places.json');
+  if (!fs.existsSync(manualPath)) {
+    console.log('No manual-places.json found, skipping manual additions.');
+    return [];
+  }
+
+  const manual = JSON.parse(fs.readFileSync(manualPath, 'utf-8'));
+  const entries = manual.places || [];
+  console.log(`\nLoading ${entries.length} manual curated places...`);
+
+  const results = [];
+  for (const entry of entries) {
+    // Skip if already in research data (by name match)
+    const nameNorm = entry.name.toLowerCase();
+    if (existingPlaceIds.has(nameNorm)) {
+      console.log(`  Skipping "${entry.name}" — already in research data`);
+      continue;
+    }
+
+    if (DRY_RUN) {
+      console.log(`  Would look up: "${entry.search_name}"`);
+      results.push({
+        ...entry,
+        place_id: `manual_${entry.name.replace(/\s+/g, '_').toLowerCase()}`,
+        rating: null,
+        user_ratings_total: 0,
+        photos: null,
+        editorial_summary: null,
+        opening_hours: null,
+        formatted_phone_number: null,
+        website: null,
+        price_level: null,
+      });
+      continue;
+    }
+
+    console.log(`  Looking up: "${entry.search_name}"`);
+    const found = await lookupManualPlace(entry);
+    await sleep(100);
+
+    if (found) {
+      const loc = found.geometry?.location;
+      results.push({
+        name: entry.name, // Keep our curated name
+        category: entry.category,
+        village: entry.village,
+        lat: loc ? loc.lat : entry.lat,
+        lng: loc ? loc.lng : entry.lng,
+        place_id: found.place_id,
+        rating: found.rating || null,
+        user_ratings_total: found.user_ratings_total || 0,
+        photos: found.photos || null,
+        editorial_summary: found.editorial_summary?.overview || null,
+        opening_hours: found.opening_hours || null,
+        formatted_phone_number: found.formatted_phone_number || null,
+        website: found.website || null,
+        price_level: found.price_level || null,
+        formatted_address: found.formatted_address || null,
+      });
+      console.log(`    ✓ Found on Google (${found.name})`);
+    } else {
+      // Use manual coordinates, no photo
+      results.push({
+        name: entry.name,
+        category: entry.category,
+        village: entry.village,
+        lat: entry.lat,
+        lng: entry.lng,
+        place_id: `manual_${entry.name.replace(/\s+/g, '_').toLowerCase()}`,
+        rating: null,
+        user_ratings_total: 0,
+        photos: null,
+        editorial_summary: null,
+        opening_hours: null,
+        formatted_phone_number: null,
+        website: null,
+        price_level: null,
+      });
+      console.log(`    ✗ Not found — using manual coordinates`);
+    }
+  }
+
+  console.log(`  → ${results.length} manual places to merge`);
+  return results;
 }
 
 async function main() {
@@ -128,7 +227,13 @@ async function main() {
   const topCount = Math.max(1, Math.ceil(places.length * percentile / 100));
   const topPlaces = places.slice(0, topCount); // Already sorted by score desc
 
-  // Find #1 per category for featured flag
+  // Build a set of existing place names for dedup against manual places
+  const existingNames = new Set(topPlaces.map(p => p.name.toLowerCase()));
+
+  // Load and enrich manual curated places
+  const manualPlaces = await loadManualPlaces(existingNames);
+
+  // Find #1 per category for featured flag (from research data only)
   const topByCategory = {};
   for (const p of topPlaces) {
     if (!topByCategory[p.category]) topByCategory[p.category] = p;
@@ -138,6 +243,7 @@ async function main() {
   const placeRows = [];
   const businessRows = [];
 
+  // Add research data
   for (const p of topPlaces) {
     const isFeatured = topByCategory[p.category]?.place_id === p.place_id;
     const description = getDescription(p);
@@ -183,14 +289,63 @@ async function main() {
     }
   }
 
+  // Add manual curated places
+  let manualPlaceCount = 0;
+  let manualBizCount = 0;
+  for (const p of manualPlaces) {
+    const imageUrl = getImageUrl(p);
+    const village = p.village || 'Unknown';
+
+    if (PLACE_CATEGORIES.has(p.category)) {
+      placeRows.push({
+        name: p.name,
+        name_ar: null,
+        description: p.editorial_summary ? p.editorial_summary.slice(0, 200) : null,
+        description_ar: null,
+        category: p.category,
+        village,
+        latitude: p.lat,
+        longitude: p.lng,
+        image_url: imageUrl,
+        featured: false,
+        open_hours: formatOpenHours(p.opening_hours),
+        google_place_id: p.place_id,
+        active: true,
+        source: 'manual_curated',
+      });
+      manualPlaceCount++;
+    } else if (BUSINESS_CATEGORIES.has(p.category)) {
+      businessRows.push({
+        name: p.name,
+        name_ar: null,
+        description: p.editorial_summary ? p.editorial_summary.slice(0, 200) : null,
+        description_ar: null,
+        category: p.category,
+        village,
+        latitude: p.lat,
+        longitude: p.lng,
+        image_url: imageUrl,
+        rating: p.rating || null,
+        phone: p.formatted_phone_number || null,
+        website: p.website || null,
+        price_range: mapPriceRange(p.price_level),
+        google_place_id: p.place_id,
+        active: true,
+        source: 'manual_curated',
+      });
+      manualBizCount++;
+    }
+  }
+
   // Category breakdowns
   const placeCats = {};
   for (const r of placeRows) placeCats[r.category] = (placeCats[r.category] || 0) + 1;
   const bizCats = {};
   for (const r of businessRows) bizCats[r.category] = (bizCats[r.category] || 0) + 1;
 
-  console.log('=== Import Summary ===');
-  console.log(`Percentile: top ${percentile}% → ${topPlaces.length} places total`);
+  console.log('\n=== Import Summary ===');
+  console.log(`Research: top ${percentile}% → ${topPlaces.length} places`);
+  console.log(`Manual curated: ${manualPlaces.length} places (${manualPlaceCount} places table, ${manualBizCount} businesses table)`);
   console.log(`\nPlaces table: ${placeRows.length} rows`);
   for (const [cat, count] of Object.entries(placeCats)) console.log(`  ${cat}: ${count}`);
   console.log(`\nBusinesses table: ${businessRows.length} rows`);
@@ -199,8 +354,8 @@ async function main() {
   if (DRY_RUN) {
     console.log('\nDRY RUN — no database changes made.');
     console.log(`\nWould ${KEEP_EXISTING ? 'upsert (keeping existing active)' : 'deactivate existing and upsert'}:`);
-    console.log(`  ${placeRows.length} places`);
-    console.log(`  ${businessRows.length} businesses`);
+    console.log(`  ${placeRows.length} places (${manualPlaceCount} manual)`);
+    console.log(`  ${businessRows.length} businesses (${manualBizCount} manual)`);
 
     if (placeRows.length > 0) {
       console.log('\nSample place row:');
@@ -229,7 +384,7 @@ async function main() {
     console.log(`Deactivated ${deactivatedPlaces} places, ${deactivatedBiz} businesses.`);
   }
 
-  // Step d: Upsert new research data
+  // Step d: Upsert new research + manual curated data
   let insertedPlaces = 0;
   let insertedBiz = 0;
 
@@ -240,7 +395,7 @@ async function main() {
       if (error) { console.error(`Failed to upsert places batch ${i}:`, error.message); process.exit(1); }
     }
     insertedPlaces = placeRows.length;
-    console.log(`Upserted ${insertedPlaces} places.`);
+    console.log(`Upserted ${insertedPlaces} places (${manualPlaceCount} manual curated).`);
   }
 
   if (businessRows.length > 0) {
@@ -250,13 +405,15 @@ async function main() {
       if (error) { console.error(`Failed to upsert businesses batch ${i}:`, error.message); process.exit(1); }
     }
     insertedBiz = businessRows.length;
-    console.log(`Upserted ${insertedBiz} businesses.`);
+    console.log(`Upserted ${insertedBiz} businesses (${manualBizCount} manual curated).`);
   }
 
   // Step e: Summary
   console.log('\n=== Final Summary ===');
   console.log(`Existing rows deactivated: ${deactivatedPlaces} places, ${deactivatedBiz} businesses`);
-  console.log(`Research rows upserted: ${insertedPlaces} places, ${insertedBiz} businesses`);
+  console.log(`Research rows upserted: ${insertedPlaces - manualPlaceCount} places, ${insertedBiz - manualBizCount} businesses`);
+  console.log(`Manual curated upserted: ${manualPlaceCount} places, ${manualBizCount} businesses`);
+  console.log(`Total active: ${insertedPlaces} places, ${insertedBiz} businesses`);
   console.log('\nImport complete! Use --revert to restore manual data.');
 }
 

@@ -1,0 +1,168 @@
+{
+  "metadata": {
+    "description": "Manually curated places that may not appear in Google results or have too few reviews to rank. These bypass scoring and are always imported.",
+    "source": "manual_curated"
+  },
+  "places": [
+    {
+      "name": "Horsh Ehden Nature Reserve",
+      "category": "nature",
+      "village": "Ehden",
+      "lat": 34.3005,
+      "lng": 35.9785,
+      "search_name": "Horsh Ehden Nature Reserve Ehden Lebanon"
+    },
+    {
+      "name": "Saydet el Hosn (Our Lady of the Fortress)",
+      "category": "religious",
+      "village": "Ehden",
+      "lat": 34.2950,
+      "lng": 35.9597,
+      "search_name": "Saydet el Hosn Church Ehden Lebanon"
+    },
+    {
+      "name": "Mar Mema Church",
+      "category": "religious",
+      "village": "Ehden",
+      "lat": 34.3020,
+      "lng": 35.9750,
+      "search_name": "Mar Mema Church Ehden Lebanon"
+    },
+    {
+      "name": "Cathedral of St. Georges",
+      "category": "religious",
+      "village": "Ehden",
+      "lat": 34.3065,
+      "lng": 35.9810,
+      "search_name": "St Georges Cathedral Ehden Lebanon"
+    },
+    {
+      "name": "Saint Moura Church",
+      "category": "religious",
+      "village": "Ehden",
+      "lat": 34.3040,
+      "lng": 35.9790,
+      "search_name": "Mart Moura Church Ehden Lebanon"
+    },
+    {
+      "name": "Monastery of St. Anthony Qozhaya",
+      "category": "religious",
+      "village": "Aarbet Qozhaya",
+      "lat": 34.2840,
+      "lng": 35.9449,
+      "search_name": "Monastery St Anthony Qozhaya Lebanon"
+    },
+    {
+      "name": "Saydet Al Marahem (Our Lady of Mercies)",
+      "category": "religious",
+      "village": "Miziara",
+      "lat": 34.3310,
+      "lng": 35.9100,
+      "search_name": "Emm el Marahem Church Miziara Lebanon"
+    },
+    {
+      "name": "Saint Maria Goretti Shrine",
+      "category": "religious",
+      "village": "Miziara",
+      "lat": 34.3300,
+      "lng": 35.9080,
+      "search_name": "Saint Maria Goretti Shrine Miziara Lebanon"
+    },
+    {
+      "name": "Bnachii Lake",
+      "category": "nature",
+      "village": "Bnachii",
+      "lat": 34.3365,
+      "lng": 35.8868,
+      "search_name": "Lake Bnachei Zgharta Lebanon"
+    },
+    {
+      "name": "Youssef Bey Karam Statue",
+      "category": "heritage",
+      "village": "Ehden",
+      "lat": 34.3065,
+      "lng": 35.9815,
+      "search_name": "Youssef Beik Karam Statue Ehden Lebanon"
+    },
+    {
+      "name": "Al Midan Square",
+      "category": "heritage",
+      "village": "Ehden",
+      "lat": 34.3060,
+      "lng": 35.9820,
+      "search_name": "Ehden Downtown Midan Square Lebanon"
+    },
+    {
+      "name": "Haouqa-Qadisha Trail",
+      "category": "nature",
+      "village": "Ehden",
+      "lat": 34.2800,
+      "lng": 35.9600,
+      "search_name": "Qadisha Valley hiking trail Lebanon"
+    },
+    {
+      "name": "Les Caves d'Éden",
+      "category": "heritage",
+      "village": "Ehden",
+      "lat": 34.3050,
+      "lng": 35.9800,
+      "search_name": "Les Caves d'Eden Winery Ehden Lebanon"
+    },
+    {
+      "name": "Kharfashmun Park",
+      "category": "nature",
+      "village": "Zgharta",
+      "lat": 34.3700,
+      "lng": 35.9200,
+      "search_name": "Kharfashmun Park Zgharta Lebanon"
+    },
+    {
+      "name": "Artisanat Zghorta",
+      "category": "shop",
+      "village": "Zgharta",
+      "lat": 34.3955,
+      "lng": 35.8900,
+      "search_name": "Artisanat Zgharta Lebanon"
+    },
+    {
+      "name": "Al Ferdaws Restaurant",
+      "category": "restaurant",
+      "village": "Ehden",
+      "lat": 34.3060,
+      "lng": 35.9830,
+      "search_name": "Al Ferdaws Restaurant Ehden Lebanon"
+    },
+    {
+      "name": "Beb el Hawa viewpoint",
+      "category": "nature",
+      "village": "Ehden",
+      "lat": 34.2900,
+      "lng": 35.9650,
+      "search_name": "Beb el Hawa Ehden Lebanon"
+    },
+    {
+      "name": "Mazar Saint Rafqa",
+      "category": "religious",
+      "village": "Basloukit",
+      "lat": 34.3150,
+      "lng": 35.9500,
+      "search_name": "Saint Rafqa Basloukit Lebanon"
+    },
+    {
+      "name": "Minus Pub",
+      "category": "cafe",
+      "village": "Ehden",
+      "lat": 34.3070,
+      "lng": 35.9820,
+      "search_name": "Minus Pub Ehden Lebanon"
+    },
+    {
+      "name": "Massaya Zaman Restaurant",
+      "category": "restaurant",
+      "village": "Zgharta",
+      "lat": 34.3955,
+      "lng": 35.8950,
+      "search_name": "Massaya Zaman Restaurant Zgharta Lebanon"
+    }
+  ]
+}

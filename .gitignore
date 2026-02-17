@@ -14,5 +14,7 @@ npm-debug.log*
 .env
 
 # Research data (raw API responses, scored data, reports)
-/data/*.json
-/data/*.md
+/data/raw-places.json
+/data/scored-places.json
+/data/top-places-report.md
+# Note: data/manual-places.json is committed (curated by hand)
