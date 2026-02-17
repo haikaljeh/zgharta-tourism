@@ -19,7 +19,14 @@
     "update-websites": "node scripts/update-websites.js",
     "update-websites:dry": "node scripts/update-websites.js --dry-run",
     "fetch-photos": "node scripts/fetch-photos.js",
-    "fetch-photos:dry": "node scripts/fetch-photos.js --dry-run"
+    "fetch-photos:dry": "node scripts/fetch-photos.js --dry-run",
+    "research": "node scripts/research-places.js",
+    "research:dry": "node scripts/research-places.js --dry-run",
+    "score": "node scripts/score-places.js",
+    "score:custom": "node scripts/score-places.js --percentile",
+    "import-research": "node scripts/import-research.js",
+    "import-research:dry": "node scripts/import-research.js --dry-run",
+    "import-research:keep": "node scripts/import-research.js --keep-existing"
   },
   "browserslist": {
     "production": [

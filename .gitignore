@@ -12,3 +12,7 @@ npm-debug.log*
 
 # Environment files
 .env
+
+# Research data (raw API responses, scored data, reports)
+/data/*.json
+/data/*.md
