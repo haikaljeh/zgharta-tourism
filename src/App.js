@@ -672,7 +672,9 @@ export default function ZghartaTourismApp() {
         const c = mapInstanceRef.current.getCenter();
         if (c) {
           const b = cazaBoundsRef.current;
-          setOutsideBounds(c.lat() < b.minLat || c.lat() > b.maxLat || c.lng() < b.minLng || c.lng() > b.maxLng);
+          const outOfBounds = c.lat() < b.minLat || c.lat() > b.maxLat || c.lng() < b.minLng || c.lng() > b.maxLng;
+          const zoomedOut = mapInstanceRef.current.getZoom() < 11;
+          setOutsideBounds(outOfBounds || zoomedOut);
         }
       });
       // Fetch Zgharta caza boundary from OpenStreetMap Nominatim
