@@ -954,13 +954,13 @@ export default function ZghartaTourismApp() {
     {/* Locate me button */}
     <button onClick={handleLocateMe} style={{
       position: 'absolute', bottom: cardsVisible && visibleCards.length > 0 ? 234 : 80, [isRTL ? 'right' : 'left']: 12, zIndex: 8,
-      width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.5)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      width: 42, height: 42, borderRadius: 9999, border: '1.5px solid rgba(16,185,129,0.25)',
+      background: geoActive ? 'rgba(219,234,254,0.85)' : 'rgba(255,255,255,0.9)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.15)', cursor: 'pointer',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      transition: 'bottom 0.3s ease',
-    }}>
+      transition: 'bottom 0.3s ease, transform 0.1s ease, background 0.2s ease',
+    }} onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.93)'; }} onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)'; }} onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
       <Navigation style={{ width: 20, height: 20, color: geoActive ? '#2563eb' : '#6b7280', fill: geoActive ? '#2563eb' : 'none', transition: 'all 0.2s ease' }} />
     </button>
 
@@ -982,13 +982,13 @@ export default function ZghartaTourismApp() {
     {/* Card toggle button */}
     {visibleCards.length > 0 && <button onClick={() => setCardsVisible(v => !v)} style={{
       position: 'absolute', bottom: cardsVisible ? 234 : 80, [isRTL ? 'left' : 'right']: 12, zIndex: 8,
-      width: 42, height: 42, borderRadius: 9999, border: '1px solid rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.5)',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer',
+      width: 42, height: 42, borderRadius: 9999, border: '1.5px solid rgba(16,185,129,0.25)',
+      background: 'rgba(255,255,255,0.9)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.15)', cursor: 'pointer',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      transition: 'bottom 0.3s ease',
-    }}>
+      transition: 'bottom 0.3s ease, transform 0.1s ease',
+    }} onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.93)'; }} onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)'; }} onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}>
       {cardsVisible
         ? <ChevronDown style={{ width: 20, height: 20, color: '#6b7280' }} />
         : <ChevronRight style={{ width: 20, height: 20, color: '#6b7280', transform: 'rotate(-90deg)' }} />}
