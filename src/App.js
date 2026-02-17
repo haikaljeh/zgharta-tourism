@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { MapPin, TreePine, Utensils, ShoppingBag, Heart, X, Phone, Globe, Clock, Star, ChevronRight, ChevronLeft, ChevronDown, Compass, Map, Calendar, ArrowLeft, Navigation, Loader2, Search, Coffee, Landmark, BedDouble, Info, Sparkles, Sun, Share2, ExternalLink, SlidersHorizontal, CalendarPlus } from 'lucide-react';
-
-const StickCross = ({ style = {}, ...props }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={style.width || 24} height={style.height || 24} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={style} {...props}>
-    <line x1="8" y1="1" x2="8" y2="15" /><line x1="3" y1="5" x2="13" y2="5" />
-  </svg>
-);
+import CATEGORIES, { StickCross, catIcons, catColors, catBgs, markerColors, mutedCatColors, catEmoji, getCategoryColor, getCategoryIcon } from './config/categories';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://mhohpseegfnfzycxvcuk.supabase.co';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'sb_publishable_1d7gkxEaroVhrEUPYOMVIQ_uSjdM8Gc';
@@ -127,10 +122,7 @@ export default function ZghartaTourismApp() {
   // Show on map helper
   const showOnMap = () => { setSelPlace(null); setSelBiz(null); setTab('map'); };
 
-  // Consistent icon map used across all screens
-  const catIcons = { religious: StickCross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee };
-  const catColors = { religious: '#d97706', nature: '#16a34a', heritage: '#78716c', restaurant: '#dc2626', hotel: '#2563eb', shop: '#8b5cf6', cafe: '#ea580c' };
-  const catBgs = { religious: '#fef3c7', nature: '#dcfce7', heritage: '#f5f5f4', restaurant: '#fee2e2', hotel: '#dbeafe', shop: '#f3e8ff', cafe: '#fff7ed' };
+  // Category maps imported from config/categories.js
 
   const GuideScreen = () => {
     const topPlace = places.find(p => p.featured) || places[0];
@@ -192,16 +184,9 @@ export default function ZghartaTourismApp() {
       <div style={{ padding: '32px 0 0' }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 14, letterSpacing: 0.5, padding: '0 16px', textAlign: isRTL ? 'right' : 'left' }}>{t('What are you looking for?', 'ماذا تبحث عنه؟')}</h2>
         <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
-          {[{ Icon: Utensils, label: t('Dining', 'مطاعم'), filter: 'restaurant', gradient: 'linear-gradient(135deg, #fee2e2, #fecaca)', color: '#b91c1c' },
-            { Icon: Coffee, label: t('Cafes', 'مقاهي'), filter: 'cafe', gradient: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#c2410c' },
-            { Icon: ShoppingBag, label: t('Shops', 'متاجر'), filter: 'shop', gradient: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)', color: '#7c3aed' },
-            { Icon: Landmark, label: t('Heritage', 'تراث'), filter: 'heritage', gradient: 'linear-gradient(135deg, #f5f5f4, #e7e5e4)', color: '#57534e' },
-            { Icon: TreePine, label: t('Nature', 'طبيعة'), filter: 'nature', gradient: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#15803d' },
-            { Icon: BedDouble, label: t('Stay', 'إقامة'), filter: 'hotel', gradient: 'linear-gradient(135deg, #dbeafe, #bfdbfe)', color: '#1d4ed8' },
-            { Icon: StickCross, label: t('Religious', 'دينية'), filter: 'religious', gradient: 'linear-gradient(135deg, #fef3c7, #fde68a)', color: '#b45309' }
-          ].map((c, i) => <button key={i} onClick={() => { setCatFilter([c.filter]); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <c.Icon style={{ width: 24, height: 24, color: c.color }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: c.color }}>{c.label}</span>
+          {CATEGORIES.map((c, i) => <button key={c.id} onClick={() => { setCatFilter([c.id]); setTab('explore'); }} style={{ flexShrink: 0, width: 88, background: c.gradient, border: 'none', borderRadius: 16, padding: '18px 8px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <c.icon style={{ width: 24, height: 24, color: c.gradientAccent }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: c.gradientAccent }}>{t(c.shortLabelEn, c.shortLabelAr)}</span>
           </button>)}
         </div>
       </div>
@@ -328,15 +313,7 @@ export default function ZghartaTourismApp() {
       setCatFilter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
-    const categories = [
-      { id: 'restaurant', icon: Utensils, l: t('Restaurants', 'مطاعم'), color: '#e06060' },
-      { id: 'cafe', icon: Coffee, l: t('Cafes', 'مقاهي'), color: '#e08a5a' },
-      { id: 'shop', icon: ShoppingBag, l: t('Shops', 'متاجر'), color: '#9b7ed8' },
-      { id: 'heritage', icon: Landmark, l: t('Heritage', 'تراث'), color: '#8d8680' },
-      { id: 'nature', icon: TreePine, l: t('Nature', 'طبيعة'), color: '#5aab6e' },
-      { id: 'hotel', icon: BedDouble, l: t('Hotels', 'فنادق'), color: '#5b8fd9' },
-      { id: 'religious', icon: StickCross, l: t('Religious', 'دينية'), color: '#d4a054' },
-    ];
+    const categories = CATEGORIES.map(c => ({ id: c.id, icon: c.icon, l: t(c.labelEn, c.labelAr), color: c.color }));
 
     const hasActiveFilters = catFilter.length > 0 || mapVillageFilter.length > 0 || minRating > 0;
     const clearAllFilters = () => { setCatFilter([]); setMinRating(0); setMapVillageFilter([]); };
@@ -558,7 +535,7 @@ export default function ZghartaTourismApp() {
   const toggleCat = (c) => setMapFilter(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   const toggleVillage = (v) => setVillageFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
-  const markerColors = { religious: '#d4a054', nature: '#5aab6e', heritage: '#8d8680', restaurant: '#e06060', hotel: '#5b8fd9', shop: '#9b7ed8', cafe: '#e08a5a' };
+  // markerColors imported from config/categories.js
 
   const catIconPaths = {
     religious: { vb: '0 0 16 16', d: '<line x1="8" y1="1" x2="8" y2="15"/><line x1="3" y1="5" x2="13" y2="5"/>' },
@@ -576,7 +553,7 @@ export default function ZghartaTourismApp() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${icon.vb}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon.d}</svg>`;
   };
 
-  const mutedCatColors = { religious: 'rgba(180,83,9,0.65)', nature: 'rgba(21,128,61,0.65)', heritage: 'rgba(87,83,78,0.65)', restaurant: 'rgba(220,38,38,0.65)', hotel: 'rgba(37,99,235,0.65)', cafe: 'rgba(234,88,12,0.65)', shop: 'rgba(124,58,237,0.65)' };
+  // mutedCatColors imported from config/categories.js
 
   const makeDotEl = (color, cat, fav) => {
     const el = document.createElement('div');
@@ -928,20 +905,12 @@ export default function ZghartaTourismApp() {
       </div>
       {/* Row 2: Category chips */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', direction: isRTL ? 'rtl' : 'ltr' }}>
-        {[
-          { id: 'restaurant', icon: Utensils, en: 'Restaurants', ar: 'مطاعم', color: '#e06060' },
-          { id: 'cafe', icon: Coffee, en: 'Cafés', ar: 'مقاهي', color: '#e08a5a' },
-          { id: 'shop', icon: ShoppingBag, en: 'Shops', ar: 'متاجر', color: '#9b7ed8' },
-          { id: 'heritage', icon: Landmark, en: 'Heritage', ar: 'تراث', color: '#8d8680' },
-          { id: 'nature', icon: TreePine, en: 'Nature', ar: 'طبيعة', color: '#5aab6e' },
-          { id: 'hotel', icon: BedDouble, en: 'Hotels', ar: 'فنادق', color: '#5b8fd9' },
-          { id: 'religious', icon: StickCross, en: 'Religious', ar: 'دينية', color: '#d4a054' },
-        ].map(c => {
+        {CATEGORIES.map(c => {
           const active = mapFilter.includes(c.id);
           const Icon = c.icon;
           return <button key={c.id} onClick={() => { toggleCat(c.id); setSelectedMarker(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9999, border: active ? `2px solid ${c.color}` : '1.5px solid rgba(0,0,0,0.12)', background: active ? c.color : 'rgba(255,255,255,0.7)', backdropFilter: active ? 'none' : 'blur(12px)', WebkitBackdropFilter: active ? 'none' : 'blur(12px)', color: active ? 'white' : '#374151', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', flexShrink: 0, transition: 'all 0.15s ease' }}>
             <Icon style={{ width: 13, height: 13 }} />
-            {t(c.en, c.ar)}
+            {t(c.labelEn, c.labelAr)}
           </button>;
         })}
       </div>
@@ -1039,7 +1008,7 @@ export default function ZghartaTourismApp() {
   const favsEmpty = allSaved.length === 0;
   const favsTotalCount = allSaved.length;
   const favsGroups = React.useMemo(() => {
-    const catOrder = ['restaurant', 'cafe', 'shop', 'heritage', 'nature', 'hotel', 'religious'];
+    const catOrder = CATEGORIES.map(c => c.id);
     const g = {};
     allSaved.forEach(i => { if (!g[i.category]) g[i.category] = []; g[i.category].push(i); });
     const ordered = {};
@@ -1047,7 +1016,7 @@ export default function ZghartaTourismApp() {
     Object.keys(g).forEach(c => { if (!ordered[c]) ordered[c] = g[c]; });
     return ordered;
   }, [allSaved]);
-  const catEmoji = { religious: '⛪', nature: '🌲', heritage: '🏛', restaurant: '🍴', hotel: '🏨', shop: '🛍', cafe: '☕' };
+  // catEmoji imported from config/categories.js
 
   const shareTrip = async () => {
     let text = `${t('My Zgharta Caza Trip', 'رحلتي في قضاء زغرتا')}:\n\n`;
