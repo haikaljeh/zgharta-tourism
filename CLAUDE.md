@@ -37,6 +37,12 @@ zgharta-tourism/
 ├── package.json
 ├── vercel.json             # SPA rewrite for Vercel
 ├── .env                    # Environment variables (not committed)
+├── .env.example            # Template listing all required env vars
+├── .gitignore              # Ignores node_modules, build, .env, *.save
+├── scripts/
+│   ├── import-businesses.js  # Google Places API → Supabase (upsert)
+│   ├── update-websites.js    # Find/add website URLs for businesses
+│   └── fetch-photos.js       # Fetch Google Places photos → Supabase
 ├── public/
 │   ├── index.html          # OG tags, PWA meta, Google Fonts
 │   ├── manifest.json       # PWA manifest
@@ -44,18 +50,42 @@ zgharta-tourism/
 └── src/
     ├── index.js            # React 18 createRoot entry point
     ├── index.css           # Global reset, scrollbar hide, Inter font
-    └── App.js              # THE ENTIRE APP (~950 lines, single file)
+    ├── config/
+    │   └── categories.js   # Canonical category definitions & helpers
+    └── App.js              # THE ENTIRE APP (~1230 lines, single file)
 ```
-There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks/`, `context/`, or `utils/` folders. Everything lives in `App.js`.
 
 ## Architecture — Single-File App (src/App.js)
 
 ### Top-Level Components
-| Component | Lines | Description |
-|-----------|-------|-------------|
-| `StickCross` | ~5-9 | Custom SVG cross icon (thin stick cross for religious category, replaces lucide `Cross`) |
-| `PlaceImage` | ~11-20 | Reusable image with category-colored gradient fallback + lazy loading |
-| `ZghartaTourismApp` | ~22-1100+ | Main app (default export). All state, helpers, and screens inside. |
+| Component | Location | Description |
+|-----------|----------|-------------|
+| `StickCross` | `src/config/categories.js` | Custom SVG cross icon (thin stick cross for religious category, replaces lucide `Cross`) |
+| `PlaceImage` | `src/App.js` ~11-20 | Reusable image with category-colored gradient fallback + lazy loading |
+| `ZghartaTourismApp` | `src/App.js` ~22-1230+ | Main app (default export). All state, helpers, and screens inside. |
+
+### Category Config (src/config/categories.js)
+Canonical source of truth for all 7 categories. Each category has:
+- `id` — Database string: `'restaurant'` | `'cafe'` | `'shop'` | `'heritage'` | `'nature'` | `'hotel'` | `'religious'`
+- `labelEn`, `labelAr` — Full labels (e.g. "Restaurants" / "مطاعم")
+- `shortLabelEn`, `shortLabelAr` — Short labels for GuideScreen (e.g. "Dining" / "مطاعم", "Stay" / "إقامة")
+- `icon` — Lucide-react component reference (or `StickCross` for religious)
+- `color` — Primary color for chips/markers (e.g. `'#e06060'`)
+- `badgeColor` — Badge/label color (e.g. `'#dc2626'`)
+- `bgColor` — Light background color (e.g. `'#fee2e2'`)
+- `gradient` — CSS gradient for GuideScreen category cards
+- `gradientAccent` — Darker accent for gradient card text
+- `mutedColor` — Semi-transparent rgba for favorited markers
+- `markerColor` — Map marker color
+- `emoji` — For share-trip text
+- `displayOrder` — 0-6, canonical order: Restaurant → Cafe → Shop → Heritage → Nature → Hotel → Religious
+- `type` — `'place'` or `'business'`
+
+**Exported helpers:** `getCategoryColor(id)`, `getCategoryBadgeColor(id)`, `getCategoryBgColor(id)`, `getCategoryMarkerColor(id)`, `getCategoryMutedColor(id)`, `getCategoryIcon(id)`, `getCategoryEmoji(id)`, `getCategoryLabel(id, lang)`, `getCategoryShortLabel(id, lang)`, `getCategory(id)`, `getPlaceCategories()`, `getBusinessCategories()`, `getAllCategories()`, `getCategoryOrder()`
+
+**Exported lookup maps** (for drop-in use in App.js): `catIcons`, `catColors`, `catBgs`, `markerColors`, `mutedCatColors`, `catEmoji`
+
+**Canonical category order:** Restaurant → Cafe → Shop → Heritage → Nature → Hotel → Religious — used consistently across all screens (Explore, Guide, Map, Saved). All screens show all 7 categories. FavsScreen derives `catOrder` from `CATEGORIES.map(c => c.id)`.
 
 ### State (inside ZghartaTourismApp)
 - `tab` — Active tab: `'map'` | `'explore'` | `'events'` | `'guide'` | `'favorites'`
@@ -84,11 +114,11 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 ### Screen Components (defined inside ZghartaTourismApp)
 | Screen | Tab ID | Rendering | Description |
 |--------|--------|-----------|-------------|
-| `GuideScreen` | `'guide'` | `<GuideScreen />` | Travel magazine landing: cinematic hero, full-image must-see card, horizontal category strip, calendar-style event, story-style top rated, circular village thumbnails, minimal transit directions |
-| `ExploreScreen` | `'explore'` | `<ExploreScreen />` | Warm gradient list view with global search, rating filter, village filter dropdown (synced with MapScreen via `mapVillageFilter`), icon-enriched category pills with per-category colors, card shadows with inline favorite hearts, colored category badges, active filters summary bar with removable tags, magazine-style empty state with clear-all button |
+| `GuideScreen` | `'guide'` | `<GuideScreen />` | Travel magazine landing: cinematic hero, full-image must-see card, horizontal category strip (from `CATEGORIES`), calendar-style event, story-style top rated, circular village thumbnails, minimal transit directions |
+| `ExploreScreen` | `'explore'` | `<ExploreScreen />` | Warm gradient list view with global search, rating filter, village filter dropdown (synced with MapScreen via `mapVillageFilter`), icon-enriched category pills (from `CATEGORIES`), card shadows with inline favorite hearts, colored category badges, active filters summary bar with removable tags, magazine-style empty state with clear-all button |
 | `EventsScreen` | `'events'` | `<EventsScreen />` | Events list with upcoming/past/all toggle and category filters |
-| `MapScreen` | `'map'` | `{MapScreen()}` (function call) | Google Maps with 3-tier HtmlMarker overlays, frosted glass search/filters, locate-me button, inline search, horizontal category filter chips, village filter dropdown, swipeable image-card carousel. **Always mounted** (hidden via `display:none` when not active tab) |
-| `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category (ordered via `catOrder` array), share-trip, view-on-map |
+| `MapScreen` | `'map'` | `{MapScreen()}` (function call) | Google Maps with 3-tier HtmlMarker overlays, frosted glass search/filters, locate-me button, inline search, horizontal category filter chips (from `CATEGORIES`), village filter dropdown, swipeable image-card carousel. **Always mounted** (hidden via `display:none` when not active tab) |
+| `FavsScreen` | `'favorites'` | `{FavsScreen()}` (function call) | Saved items grouped by category (ordered via `CATEGORIES`), share-trip, view-on-map |
 
 **Rendering note:** MapScreen and FavsScreen are called as functions (not components) because their hooks are lifted to the parent scope. This prevents React from unmounting/remounting them on parent re-renders (which would destroy the Google Maps instance or cause image flicker). Other screens still render as `<Component />` with hooks inside.
 
@@ -139,6 +169,7 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 | `website` | `website` | |
 | `specialties` | `specialties` | Array of strings |
 | `verified` | `verified` | Boolean |
+| `google_place_id` | — | Unique, used as upsert conflict key by import script |
 
 ### `events` table
 | Column | Maps to | Notes |
@@ -158,11 +189,39 @@ There are **no** subdirectories under `src/`. No `components/`, `pages/`, `hooks
 
 ## Environment Variables
 ```env
-REACT_APP_SUPABASE_URL=https://mhohpseegfnfzycxvcuk.supabase.co
+# Client-side (React app) — REACT_APP_ prefix (CRA convention)
+REACT_APP_SUPABASE_URL=https://your-project.supabase.co
 REACT_APP_SUPABASE_ANON_KEY=<in .env>
 REACT_APP_GOOGLE_MAPS_KEY=<in .env>
+
+# Server-side (scripts only) — never exposed to client
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<in .env>
+GOOGLE_API_KEY=<in .env>
 ```
-All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supabase URL and anon key in `App.js`.
+Hardcoded fallbacks exist for Supabase URL and anon key in `App.js` (public client-side keys). See `.env.example` for the full template with comments.
+
+## Scripts (scripts/)
+
+All scripts read credentials from environment variables (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_API_KEY`). Each validates required env vars at startup and exits with a clear error if any are missing.
+
+### import-businesses.js
+- Searches Google Places API across 14 village areas for restaurants, hotels, cafes, shops
+- Uses **upsert** on `google_place_id` conflict key (idempotent — safe to re-run)
+- Requires: `ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT UNIQUE;`
+- Supports `--dry-run` flag to preview without writing
+
+### update-websites.js
+- Finds and adds missing website URLs and phone numbers for existing businesses
+- Only updates records that are missing website or phone
+- Supports `--dry-run` flag
+
+### fetch-photos.js
+- Fetches Google Places photos for places and businesses missing `image_url`
+- Skips items that already have images
+- Supports `--dry-run` flag
+
+All scripts print a summary at the end: updated, skipped, failed counts.
 
 ## Key Patterns & Conventions
 
@@ -173,11 +232,9 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 
 ### Styling
 - **All inline CSS** — no className usage except `.map-screen` (dvh height) and `.map-carousel` (scrollbar hiding)
-- **Canonical category order:** Restaurant → Cafe → Shop → Heritage → Nature → Hotel → Religious — used consistently across all screens (Explore, Guide, Map, Saved). All screens show all 7 categories. FavsScreen uses a `catOrder` array to sort dynamic groups.
-- Category color system: `catIcons`, `catColors`, `catBgs` objects map category strings to icons, hex colors, and background colors
-- **Religious icon:** Custom `StickCross` SVG component (thin stick cross) used everywhere instead of lucide `Cross`
-- **Category labels:** All screens use category ID as label (e.g. "religious", "heritage") — not aliases like "Churches" or "Landmarks". GuideScreen uses short labels: "Dining" (restaurant), "Stay" (hotel)
-- Map marker colors in separate `markerColors` object
+- **Category config:** All category definitions (icons, colors, backgrounds, labels, order) live in `src/config/categories.js`. App.js imports `CATEGORIES` array and pre-built lookup maps (`catIcons`, `catColors`, `catBgs`, `markerColors`, `mutedCatColors`, `catEmoji`). No category definitions should be duplicated in App.js.
+- **Religious icon:** Custom `StickCross` SVG component (thin stick cross) defined in `config/categories.js`, used everywhere instead of lucide `Cross`
+- **Category labels:** All screens use category ID as label (e.g. "religious", "heritage") — not aliases like "Churches" or "Landmarks". GuideScreen uses short labels from `shortLabelEn`/`shortLabelAr`: "Dining" (restaurant), "Stay" (hotel)
 - RTL handled via `direction: isRTL ? 'rtl' : 'ltr'` on all screens and modals, conditional `textAlign`/`flexDirection`, and `[isRTL ? 'right' : 'left']` for absolute positioning (back buttons, badges, dropdowns, close buttons)
 
 ### Bilingual
@@ -198,6 +255,10 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
 - `modalBackBtn` — RTL-aware back button style for all 3 modals
 - `circleBtn` — base 40x40 circular button style
 - `primaryBtn` / `secondaryBtn` — action button styles used across modals
+- `modalContainer` — full-screen modal wrapper with RTL direction
+- `screenContainer` — standard screen wrapper with min-height and padding
+- `stickyHeader` — sticky top header with bottom border
+- `heroGradient` — dark gradient overlay for image heroes
 
 ### Performance & State Architecture
 - **Lifted hooks pattern:** MapScreen and FavsScreen hooks (`useState`, `useEffect`, `useRef`, `useMemo`) are lifted to the parent `ZghartaTourismApp` scope. This prevents component identity changes from causing unmount/remount (which would destroy the Google Maps instance or trigger image reload flicker). The loading/error early returns are placed AFTER all hooks to comply with React's rules of hooks.
@@ -217,17 +278,17 @@ All use `REACT_APP_` prefix (CRA convention). Hardcoded fallbacks exist for Supa
   - **Staggered pop animation:** When zooming into a higher tier, markers animate in with `markerPop` keyframe and staggered delays (30ms per marker, max 500ms)
   - Click listener on wrapper div works at all zoom levels; sets `selectedMarkerRef` synchronously before `panTo`
 - **Favorited marker styling:** Muted inverted colors — category-colored background with white icon (vs normal: white background with colored icon). Favorites render at z-index 10 (above normal z-index 1). Marker visuals update in-place via lightweight effect (no destruction/recreation).
-- **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — defined at parent scope
+- **Marker helpers:** `catIconPaths` (SVG path data per category), `makeCatSVG()`, `makeDotEl()`, `makeIconEl()`, `makeLabeledEl()` — defined at parent scope. Use `markerColors` and `mutedCatColors` from `config/categories.js`.
 - **Category icons:** Custom `StickCross` SVG for religious (thin stick cross), lucide-style SVGs for nature/heritage/restaurant/hotel/cafe/shop
 - **Frosted glass UI:** Search bar, village filter, language toggle, and category chips use `backdrop-filter: blur()` with semi-transparent backgrounds
-- **Category filter chips:** Horizontal scrollable row of pill-shaped chips with icons, bilingual labels, multi-select, color-coded active states, visible outline borders on inactive chips (fontWeight 700)
+- **Category filter chips:** Horizontal scrollable row of pill-shaped chips with icons, bilingual labels (from `CATEGORIES`), multi-select, color-coded active states, visible outline borders on inactive chips (fontWeight 700)
 - **Swipeable card carousel:** Horizontal scroll-snap carousel of image-background cards at bottom of map (`bottom: 56px`). Cards show top 8 places/businesses in viewport (updated via `idle` listener). Selected marker always injected into card list. Cards persist when viewport is empty (only updates when new results > 0). Full-bleed images with dark gradient overlay, frosted heart buttons, white text.
 - **Card carousel toggle:** `cardsVisible` state with toggle button (bottom-right). Cards slide out via `translateY` transition. Buttons animate position between `bottom: 224px` (visible) and `bottom: 64px` (hidden). Tapping a marker auto-shows cards.
 - **Locate-me button:** Bottom-left (RTL: bottom-right) frosted glass circle. Taps to geolocate, pans map, places pulsing blue dot (`geoPulse` CSS animation via custom OverlayView). Icon fills solid blue when active; `dragstart` listener deactivates.
 - **No zoom buttons:** `zoomControl: false`, `disableDefaultUI: true` — pinch-to-zoom only
 - **No fitBounds on filter changes:** Category and village filter toggles only show/hide markers — they never call `fitBounds`, `setCenter`, or `setZoom`. Map position is only changed by: initial load, user gestures, geolocation button, marker tap, or "Back to Zgharta" button.
 - **Back to Zgharta pill:** Floating frosted glass pill (Compass icon + "Zgharta Caza"/"زغرتا") appears when map center drifts outside the caza bounding box. Horizontally centered between locate-me and carousel toggle buttons, same `bottom` position and transition. On tap: pans to default center at zoom 13. Fades in/out via opacity transition, tracked by `outsideBounds` state updated on `idle` event.
-- **Zgharta caza boundary polygon:** Fetched at runtime from OpenStreetMap Nominatim API (`polygon_geojson=1`) on map init. Handles both `Polygon` and `MultiPolygon` GeoJSON types. Stored in `boundaryRef`. Emerald green stroke (0.75 opacity, weight 3) and subtle fill (0.05 opacity). `clickable: false`, `zIndex: 0`. Bounding box computed from API response and stored in `cazaBoundsRef` — used by "Back to Zgharta" pill and geolocation check. Fallback bounds `{minLat: 34.26, maxLat: 34.43, minLng: 35.83, maxLng: 36.01}` if API fails. Single request, `User-Agent: ZghartaTourismApp/1.0` per Nominatim policy.
+- **Zgharta caza boundary polygon:** Fetched at runtime from OpenStreetMap Nominatim API (`polygon_geojson=1`) on map init. Handles both `Polygon` and `MultiPolygon` GeoJSON types. Stored in `boundaryRef`. Emerald green stroke (0.75 opacity, weight 4) and subtle fill (0.05 opacity). `clickable: false`, `zIndex: 0`. Bounding box computed from API response and stored in `cazaBoundsRef` — used by "Back to Zgharta" pill and geolocation check. Fallback bounds `{minLat: 34.26, maxLat: 34.43, minLng: 35.83, maxLng: 36.01}` if API fails. Single request, `User-Agent: ZghartaTourismApp/1.0` per Nominatim policy.
 - **Body scroll lock:** useEffect locks body/html overflow when `tab === 'map'`; root wrapper gets conditional `overflow: 'hidden'`
 - **Always mounted:** MapScreen div stays in the DOM (hidden via `display:none` when not active tab) so Google Maps instance persists across tab switches
 - Map height uses `100dvh` with `100vh` fallback (CSS class `.map-screen`)
@@ -251,7 +312,21 @@ npm install        # Install dependencies
 npm start          # Dev server (CRA, port 3000)
 npm run build      # Production build
 git push origin main   # Auto-deploys to Vercel
+
+# Data import scripts (require SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY in env)
+npm run import-businesses       # Import businesses from Google Places
+npm run import-businesses:dry   # Preview without writing to DB
+npm run update-websites         # Add missing website/phone data
+npm run update-websites:dry     # Preview without writing to DB
+npm run fetch-photos            # Fetch missing photos from Google Places
+npm run fetch-photos:dry        # Preview without writing to DB
 ```
+
+## Security
+- **Client-side keys** (Supabase anon key, Google Maps key) have hardcoded fallbacks in `App.js` — these are public keys with Row Level Security / API restrictions
+- **Server-side keys** (Supabase service role key, Google API key for Places) are **never** hardcoded — scripts read from `process.env` and exit with a clear error if missing
+- `.env` is gitignored; `.env.example` documents all required variables
+- `*.save` files are gitignored to prevent accidental credential leaks from editor backups
 
 ## Geographic Context
 Zgharta Caza (District) is in the North Governorate of Lebanon. Villages referenced in the codebase:
