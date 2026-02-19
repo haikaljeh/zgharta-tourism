@@ -30,7 +30,10 @@
     "import-research:revert": "node scripts/import-research.js --revert",
     "fix-photos": "node scripts/fix-photos.js",
     "fix-photos:dry": "node scripts/fix-photos.js --dry-run",
-    "fix-photos:no-deactivate": "node scripts/fix-photos.js --skip-deactivate"
+    "fix-photos:no-deactivate": "node scripts/fix-photos.js --skip-deactivate",
+    "check-photos": "node scripts/check-photos.js",
+    "clean-district": "node scripts/clean-out-of-district.js",
+    "clean-district:dry": "node scripts/clean-out-of-district.js --dry-run"
   },
   "browserslist": {
     "production": [
