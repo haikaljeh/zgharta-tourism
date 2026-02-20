@@ -8,128 +8,52 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY || '';
 const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+// Static style objects (no RTL dependency)
+const eventCatStyles = { festival: { bg: '#f3e8ff', color: '#9333ea' }, religious: { bg: '#fef3c7', color: '#d97706' }, nature: { bg: '#dcfce7', color: '#16a34a' }, cultural: { bg: '#dbeafe', color: '#2563eb' } };
+const circleBtn = { width: 40, height: 40, borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const primaryBtn = { background: '#10b981', color: 'white', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+const secondaryBtn = { background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+const heroGradient = { position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' };
+const stickyHeader = { position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' };
+
+// PlaceImage lookup maps (static)
+const placeImageGradients = { religious: 'linear-gradient(135deg, #d4a574, #b4865f)', nature: 'linear-gradient(135deg, #86efac, #22c55e)', heritage: 'linear-gradient(135deg, #a8a29e, #57534e)', restaurant: 'linear-gradient(135deg, #fca5a5, #ef4444)', hotel: 'linear-gradient(135deg, #93c5fd, #3b82f6)', shop: 'linear-gradient(135deg, #c4b5fd, #8b5cf6)', cafe: 'linear-gradient(135deg, #fdba74, #f97316)', festival: 'linear-gradient(135deg, #f0abfc, #d946ef)', cultural: 'linear-gradient(135deg, #5eead4, #14b8a6)' };
+const placeImageIcons = { religious: StickCross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee, festival: Star, cultural: Calendar };
+
+// localStorage versioning + migration
+const migrateLocalStorage = () => {
+  try {
+    const migrations = [['zgharta-data', 'zgharta-data:v1'], ['zgharta-favs', 'zgharta-favs:v1'], ['zgharta-lang', 'zgharta-lang:v1']];
+    for (const [oldKey, newKey] of migrations) {
+      if (localStorage.getItem(oldKey) !== null && localStorage.getItem(newKey) === null) {
+        localStorage.setItem(newKey, localStorage.getItem(oldKey));
+        localStorage.removeItem(oldKey);
+      }
+    }
+  } catch {}
+};
+migrateLocalStorage();
+
 const PlaceImage = ({ src, category, name, style = {} }) => {
   const [err, setErr] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const gradients = { religious: 'linear-gradient(135deg, #d4a574, #b4865f)', nature: 'linear-gradient(135deg, #86efac, #22c55e)', heritage: 'linear-gradient(135deg, #a8a29e, #57534e)', restaurant: 'linear-gradient(135deg, #fca5a5, #ef4444)', hotel: 'linear-gradient(135deg, #93c5fd, #3b82f6)', shop: 'linear-gradient(135deg, #c4b5fd, #8b5cf6)', cafe: 'linear-gradient(135deg, #fdba74, #f97316)', festival: 'linear-gradient(135deg, #f0abfc, #d946ef)', cultural: 'linear-gradient(135deg, #5eead4, #14b8a6)' };
-  const icons = { religious: StickCross, nature: TreePine, heritage: Landmark, restaurant: Utensils, hotel: BedDouble, shop: ShoppingBag, cafe: Coffee, festival: Star, cultural: Calendar };
-  const Icon = icons[category] || MapPin;
-  const gradient = gradients[category] || gradients.heritage;
+  const Icon = placeImageIcons[category] || MapPin;
+  const gradient = placeImageGradients[category] || placeImageGradients.heritage;
   if (!src || err) return <div style={{ background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', ...style }}><Icon style={{ width: 40, height: 40, color: 'rgba(255,255,255,0.5)' }} /></div>;
   return <div style={{ position: 'relative', overflow: 'hidden', ...style }}>{!loaded && <div style={{ position: 'absolute', inset: 0, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon style={{ width: 40, height: 40, color: 'rgba(255,255,255,0.5)' }} /></div>}<img src={src} alt={name} loading="lazy" onLoad={() => setLoaded(true)} onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }} /></div>;
 };
 
-export default function ZghartaTourismApp() {
-  const [tab, setTab] = useState('map');
-  const [lang, setLang] = useState(() => {
-    try { return localStorage.getItem('zgharta-lang') || 'en'; } catch { return 'en'; }
-  });
-  const [selPlace, setSelPlace] = useState(null);
-  const [selBiz, setSelBiz] = useState(null);
-  const [favs, setFavs] = useState(() => {
-    try { const saved = localStorage.getItem('zgharta-favs'); return saved ? JSON.parse(saved) : { places: [], businesses: [] }; }
-    catch { return { places: [], businesses: [] }; }
-  });
-  const [catFilter, setCatFilter] = useState([]);
-  const [mapVillageFilter, setMapVillageFilter] = useState([]);
-  const [selEvent, setSelEvent] = useState(null);
-  const [places, setPlaces] = useState([]);
-  const [businesses, setBusinesses] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const isRTL = lang === 'ar';
-  const t = (en, ar) => lang === 'en' ? en : ar;
-
-  // Shared styles
-  const eventCatStyles = { festival: { bg: '#f3e8ff', color: '#9333ea' }, religious: { bg: '#fef3c7', color: '#d97706' }, nature: { bg: '#dcfce7', color: '#16a34a' }, cultural: { bg: '#dbeafe', color: '#2563eb' } };
-  const modalBackBtn = { position: 'absolute', top: 16, [isRTL ? 'right' : 'left']: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-  const circleBtn = { width: 40, height: 40, borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-  const primaryBtn = { background: '#10b981', color: 'white', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
-  const secondaryBtn = { background: '#f3f4f6', color: '#1f2937', padding: 14, borderRadius: 14, border: 'none', textDecoration: 'none', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
-  const modalContainer = { position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' };
-  const screenContainer = { minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' };
-  const stickyHeader = { position: 'sticky', top: 0, zIndex: 40, background: 'white', borderBottom: '1px solid #f3f4f6' };
-  const heroGradient = { position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' };
-
-  const fetchData = async () => {
-    // Try showing cached data immediately while we fetch fresh
-    let hasValidCache = false;
-    try {
-      const cached = localStorage.getItem('zgharta-data');
-      if (cached) {
-        const { places: cp, businesses: cb, events: ce, ts } = JSON.parse(cached);
-        if (cp?.length && Date.now() - ts < 86400000) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); hasValidCache = true; }
-      }
-    } catch {}
-    setError(null);
-    try {
-      if (!supabase) throw new Error('Supabase not configured — check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY');
-      const [pRes, bRes, eRes] = await Promise.all([
-        supabase.from('places').select('*').eq('active', true).order('featured', { ascending: false }),
-        supabase.from('businesses').select('*').eq('active', true).order('rating', { ascending: false }),
-        supabase.from('events').select('*').order('event_date', { ascending: true })
-      ]);
-      if (pRes.error) throw pRes.error;
-      if (bRes.error) throw bRes.error;
-      if (eRes.error) throw eRes.error;
-      const newPlaces = pRes.data.map(p => ({ id: p.id, name: p.name, nameAr: p.name_ar, category: p.category, village: p.village, description: p.description, descriptionAr: p.description_ar, image: p.image_url, coordinates: { lat: p.latitude, lng: p.longitude }, openHours: p.open_hours, featured: p.featured }));
-      const newBiz = bRes.data.map(b => ({ id: b.id, name: b.name, nameAr: b.name_ar, category: b.category, village: b.village, description: b.description, descriptionAr: b.description_ar, image: b.image_url, coordinates: { lat: b.latitude, lng: b.longitude }, rating: b.rating, priceRange: b.price_range, phone: b.phone, website: b.website, specialties: b.specialties, verified: b.verified }));
-      const newEvents = eRes.data.map(e => ({ id: e.id, name: e.name, nameAr: e.name_ar, category: e.category, village: e.village, description: e.description, descriptionAr: e.description_ar, date: e.event_date, time: e.event_time, location: e.location, locationAr: e.location_ar, featured: e.featured }));
-      setPlaces(newPlaces); setBusinesses(newBiz); setEvents(newEvents);
-      // Cache for offline use
-      try { localStorage.setItem('zgharta-data', JSON.stringify({ places: newPlaces, businesses: newBiz, events: newEvents, ts: Date.now() })); } catch {}
-    } catch (err) {
-      // Only show error if we have no cached data to fall back on
-      if (!hasValidCache) setError(err.message || 'Failed to load');
-    }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchData(); }, []);
-  useEffect(() => { try { localStorage.setItem('zgharta-favs', JSON.stringify(favs)); } catch {} }, [favs]);
-  useEffect(() => { try { localStorage.setItem('zgharta-lang', lang); } catch {} }, [lang]);
-
-  const toggleFav = (id, type) => setFavs(p => { const k = type === 'place' ? 'places' : 'businesses'; return { ...p, [k]: p[k].includes(id) ? p[k].filter(i => i !== id) : [...p[k], id] }; });
-  const isFav = (id, type) => favs[type === 'place' ? 'places' : 'businesses'].includes(id);
-
-  // Distance between two coords in km
-  const getDistance = (a, b) => {
-    if (a?.lat == null || a?.lng == null || b?.lat == null || b?.lng == null) return Infinity;
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI / 180;
-    const dLng = (b.lng - a.lng) * Math.PI / 180;
-    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-  };
-
-  // Get nearby items sorted by distance
-  const getNearby = (coords, excludeId, limit = 4) => {
-    return [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))]
-      .filter(i => i.id !== excludeId && i.coordinates?.lat)
-      .map(i => ({ ...i, dist: getDistance(coords, i.coordinates) }))
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, limit);
-  };
-
-  // Share a place via Web Share API or clipboard — include Google Maps link
-  const shareLoc = async (name, village, coords) => {
-    const mapsLink = coords?.lat ? `https://maps.google.com/?q=${coords.lat},${coords.lng}` : '';
-    const text = `${name} — ${village}, Zgharta Caza, Lebanon${mapsLink ? '\n' + mapsLink : ''}`;
-    if (navigator.share) { try { await navigator.share({ title: name, text, url: mapsLink || undefined }); } catch {} }
-    else { try { await navigator.clipboard.writeText(text); alert(t('Copied to clipboard!', 'تم النسخ!')); } catch {} }
-  };
-
-  // Show on map helper
-  const showOnMap = () => { setSelPlace(null); setSelBiz(null); setTab('map'); };
-
-  const GuideScreen = () => {
+const GuideScreen = ({ places, businesses, events, lang, isRTL, t, setSelPlace, setSelBiz, setCatFilter, setTab, setMapVillageFilter, setLang }) => {
     const topPlace = places.find(p => p.featured) || places[0];
-    const natureCount = places.filter(p => p.category === 'nature').length;
-    const churchCount = places.filter(p => p.category === 'religious').length;
-    const restCount = businesses.filter(b => b.category === 'restaurant').length;
-    const cafeCount = businesses.filter(b => b.category === 'cafe').length;
+    let natureCount = 0, churchCount = 0, restCount = 0, cafeCount = 0;
+    for (const p of places) {
+      if (p.category === 'nature') natureCount++;
+      else if (p.category === 'religious') churchCount++;
+    }
+    for (const b of businesses) {
+      if (b.category === 'restaurant') restCount++;
+      else if (b.category === 'cafe') cafeCount++;
+    }
     const totalCount = places.length + businesses.length;
     const nextEvent = events.find(e => new Date(e.date) >= new Date());
 
@@ -273,9 +197,9 @@ export default function ZghartaTourismApp() {
         </div>
       </div>
     </div>;
-  };
+};
 
-  const ExploreScreen = () => {
+const ExploreScreen = ({ places, businesses, lang, isRTL, t, catFilter, setCatFilter, mapVillageFilter, setMapVillageFilter, setSelPlace, setSelBiz, toggleFav, isFav }) => {
     const [searchInput, setSearchInput] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [minRating, setMinRating] = useState(0);
@@ -283,7 +207,6 @@ export default function ZghartaTourismApp() {
     const [showExpVillageDrop, setShowExpVillageDrop] = useState(false);
     const catScrollRef = React.useRef(null);
 
-    // Debounce search input by 200ms
     useEffect(() => {
       const timer = setTimeout(() => setDebouncedSearch(searchInput), 200);
       return () => clearTimeout(timer);
@@ -393,11 +316,11 @@ export default function ZghartaTourismApp() {
               <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <MapPin style={{ width: 12, height: 12 }} />{i.village}
               </p>
-              {i.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              {i.rating > 0 ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Star style={{ width: 14, height: 14, color: '#fbbf24', fill: '#fbbf24' }} />
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{i.rating}</span>
                 {i.priceRange && <span style={{ fontSize: 13, color: '#9ca3af' }}>{i.priceRange}</span>}
-              </div>}
+              </div> : null}
             </div>
           </div>)}
           {filteredItems.length === 0 && <div style={{ textAlign: 'center', padding: '60px 24px' }}>
@@ -409,9 +332,9 @@ export default function ZghartaTourismApp() {
         </div>
       </div>
     </div>;
-  };
+};
 
-  const EventsScreen = () => {
+const EventsScreen = ({ events, lang, isRTL, t, setSelEvent, screenContainer }) => {
     const [evFilter, setEvFilter] = useState('all');
     const [evTimeFilter, setEvTimeFilter] = useState('upcoming');
     const now = new Date();
@@ -456,7 +379,106 @@ export default function ZghartaTourismApp() {
         {fEvents.length === 0 && <div style={{ textAlign: 'center', padding: 60 }}><Calendar style={{ width: 52, height: 52, color: '#e5e7eb', margin: '0 auto 12px' }} /><p style={{ color: '#6b7280' }}>{t('No events found', 'لا توجد فعاليات')}</p></div>}
       </div>
     </div>;
+};
+
+export default function ZghartaTourismApp() {
+  const [tab, setTab] = useState('map');
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('zgharta-lang:v1') || 'en'; } catch { return 'en'; }
+  });
+  const [selPlace, setSelPlace] = useState(null);
+  const [selBiz, setSelBiz] = useState(null);
+  const [favs, setFavs] = useState(() => {
+    try { const saved = localStorage.getItem('zgharta-favs:v1'); return saved ? JSON.parse(saved) : { places: [], businesses: [] }; }
+    catch { return { places: [], businesses: [] }; }
+  });
+  const [catFilter, setCatFilter] = useState([]);
+  const [mapVillageFilter, setMapVillageFilter] = useState([]);
+  const [selEvent, setSelEvent] = useState(null);
+  const [places, setPlaces] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const isRTL = lang === 'ar';
+  const t = (en, ar) => lang === 'en' ? en : ar;
+
+  // RTL-dependent styles (computed per render)
+  const modalBackBtn = { position: 'absolute', top: 16, [isRTL ? 'right' : 'left']: 16, width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: 9999, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  const modalContainer = { position: 'fixed', inset: 0, background: 'white', zIndex: 50, overflowY: 'auto', direction: isRTL ? 'rtl' : 'ltr' };
+  const screenContainer = { minHeight: '100vh', background: '#f9fafb', paddingBottom: 96, direction: isRTL ? 'rtl' : 'ltr' };
+
+  const fetchData = async () => {
+    // Try showing cached data immediately while we fetch fresh
+    let hasValidCache = false;
+    try {
+      const cached = localStorage.getItem('zgharta-data:v1');
+      if (cached) {
+        const { places: cp, businesses: cb, events: ce, ts } = JSON.parse(cached);
+        if (cp?.length && Date.now() - ts < 86400000) { setPlaces(cp); setBusinesses(cb); setEvents(ce); setLoading(false); hasValidCache = true; }
+      }
+    } catch {}
+    setError(null);
+    try {
+      if (!supabase) throw new Error('Supabase not configured — check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY');
+      const [pRes, bRes, eRes] = await Promise.all([
+        supabase.from('places').select('*').eq('active', true).order('featured', { ascending: false }),
+        supabase.from('businesses').select('*').eq('active', true).order('rating', { ascending: false }),
+        supabase.from('events').select('*').order('event_date', { ascending: true })
+      ]);
+      if (pRes.error) throw pRes.error;
+      if (bRes.error) throw bRes.error;
+      if (eRes.error) throw eRes.error;
+      const newPlaces = pRes.data.map(p => ({ id: p.id, name: p.name, nameAr: p.name_ar, category: p.category, village: p.village, description: p.description, descriptionAr: p.description_ar, image: p.image_url, coordinates: { lat: p.latitude, lng: p.longitude }, openHours: p.open_hours, featured: p.featured }));
+      const newBiz = bRes.data.map(b => ({ id: b.id, name: b.name, nameAr: b.name_ar, category: b.category, village: b.village, description: b.description, descriptionAr: b.description_ar, image: b.image_url, coordinates: { lat: b.latitude, lng: b.longitude }, rating: b.rating, priceRange: b.price_range, phone: b.phone, website: b.website, specialties: b.specialties, verified: b.verified }));
+      const newEvents = eRes.data.map(e => ({ id: e.id, name: e.name, nameAr: e.name_ar, category: e.category, village: e.village, description: e.description, descriptionAr: e.description_ar, date: e.event_date, time: e.event_time, location: e.location, locationAr: e.location_ar, featured: e.featured }));
+      setPlaces(newPlaces); setBusinesses(newBiz); setEvents(newEvents);
+      // Cache for offline use
+      try { localStorage.setItem('zgharta-data:v1', JSON.stringify({ places: newPlaces, businesses: newBiz, events: newEvents, ts: Date.now() })); } catch {}
+    } catch (err) {
+      // Only show error if we have no cached data to fall back on
+      if (!hasValidCache) setError(err.message || 'Failed to load');
+    }
+    finally { setLoading(false); }
   };
+
+  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { try { localStorage.setItem('zgharta-favs:v1', JSON.stringify(favs)); } catch {} }, [favs]);
+  useEffect(() => { try { localStorage.setItem('zgharta-lang:v1', lang); } catch {} }, [lang]);
+
+  const toggleFav = (id, type) => setFavs(p => { const k = type === 'place' ? 'places' : 'businesses'; return { ...p, [k]: p[k].includes(id) ? p[k].filter(i => i !== id) : [...p[k], id] }; });
+  const isFav = (id, type) => favs[type === 'place' ? 'places' : 'businesses'].includes(id);
+
+  // Distance between two coords in km
+  const getDistance = (a, b) => {
+    if (a?.lat == null || a?.lng == null || b?.lat == null || b?.lng == null) return Infinity;
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  };
+
+  // Get nearby items sorted by distance
+  const getNearby = (coords, excludeId, limit = 4) => {
+    return [...places.map(p => ({ ...p, type: 'place' })), ...businesses.map(b => ({ ...b, type: 'business' }))]
+      .filter(i => i.id !== excludeId && i.coordinates?.lat)
+      .map(i => ({ ...i, dist: getDistance(coords, i.coordinates) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, limit);
+  };
+
+  // Share a place via Web Share API or clipboard — include Google Maps link
+  const shareLoc = async (name, village, coords) => {
+    const mapsLink = coords?.lat ? `https://maps.google.com/?q=${coords.lat},${coords.lng}` : '';
+    const text = `${name} — ${village}, Zgharta Caza, Lebanon${mapsLink ? '\n' + mapsLink : ''}`;
+    if (navigator.share) { try { await navigator.share({ title: name, text, url: mapsLink || undefined }); } catch {} }
+    else { try { await navigator.clipboard.writeText(text); alert(t('Copied to clipboard!', 'تم النسخ!')); } catch {} }
+  };
+
+  // Show on map helper
+  const showOnMap = () => { setSelPlace(null); setSelBiz(null); setTab('map'); };
 
   // Event Detail Modal
   const EventModal = ({ event: e, onClose }) => {
@@ -1011,7 +1033,7 @@ export default function ZghartaTourismApp() {
             <span style={{ textTransform: 'uppercase', letterSpacing: 0.5, color: 'rgba(255,255,255,0.6)' }}>{loc.category}</span>
             <span style={{ color: 'rgba(255,255,255,0.4)' }}>·</span>
             <MapPin style={{ width: 10, height: 10 }} />{loc.village}
-            {loc.rating && <><Star style={{ width: 10, height: 10, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span>{loc.rating}</span></>}
+            {loc.rating > 0 ? <><Star style={{ width: 10, height: 10, color: '#fbbf24', fill: '#fbbf24', marginLeft: 4 }} /><span>{loc.rating}</span></> : null}
           </p>
         </div>
         {selectedMarker && selectedMarker.id === loc.id && selectedMarker.type === loc.type && <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: '2px solid white', pointerEvents: 'none' }} />}
@@ -1082,7 +1104,7 @@ export default function ZghartaTourismApp() {
                   <div style={{ flex: 1, padding: 12, textAlign: isRTL ? 'right' : 'left' }}>
                     <h4 style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{isRTL ? (i.nameAr || i.name) : i.name}</h4>
                     <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}><MapPin style={{ width: 10, height: 10 }} />{i.village}</p>
-                    {i.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 3 }}><Star style={{ width: 11, height: 11, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 12, color: '#374151' }}>{i.rating}</span></div>}
+                    {i.rating > 0 ? <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 3 }}><Star style={{ width: 11, height: 11, color: '#fbbf24', fill: '#fbbf24' }} /><span style={{ fontSize: 12, color: '#374151' }}>{i.rating}</span></div> : null}
                   </div>
                 </div>
                 <button onClick={(ev) => { ev.stopPropagation(); toggleFav(i.id, i.type === 'place' ? 'place' : 'business'); }} style={{ width: 40, height: 40, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X style={{ width: 16, height: 16, color: '#d1d5db' }} /></button>
@@ -1159,10 +1181,10 @@ export default function ZghartaTourismApp() {
             <CatI style={{ width: 14, height: 14, color: 'white' }} />
             <span style={{ color: 'white', fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{b.category}</span>
           </div>
-          {b.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: 9999, padding: '5px 12px' }}>
+          {b.rating > 0 ? <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', borderRadius: 9999, padding: '5px 12px' }}>
             <Star style={{ width: 12, height: 12, color: '#fbbf24', fill: '#fbbf24' }} />
             <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>{b.rating}</span>
-          </div>}
+          </div> : null}
         </div>
       </div>
       <div style={{ padding: 24, textAlign: isRTL ? 'right' : 'left' }}>
@@ -1172,10 +1194,10 @@ export default function ZghartaTourismApp() {
           {b.priceRange && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 12, padding: '3px 10px', borderRadius: 9999 }}>{b.priceRange}</span>}
         </div>
         <h1 style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 6 }}>{isRTL ? (b.nameAr || b.name) : b.name}</h1>
-        {b.rating && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
+        {b.rating > 0 ? <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
           {[1, 2, 3, 4, 5].map(s => <Star key={s} style={{ width: 18, height: 18, color: s <= Math.round(b.rating) ? '#fbbf24' : '#e5e7eb', fill: s <= Math.round(b.rating) ? '#fbbf24' : '#e5e7eb' }} />)}
           <span style={{ fontWeight: 600, color: '#374151', [isRTL ? 'marginRight' : 'marginLeft']: 4 }}>{b.rating}</span>
-        </div>}
+        </div> : null}
         {(isRTL ? (b.descriptionAr || b.description) : b.description) && <p style={{ color: '#4b5563', lineHeight: 1.6, marginBottom: 24 }}>{isRTL ? (b.descriptionAr || b.description) : b.description}</p>}
         {b.specialties?.length > 0 && <div style={{ marginBottom: 24 }}><h3 style={{ fontWeight: 600, color: '#1f2937', marginBottom: 8, fontSize: 15 }}>{t('Specialties', 'التخصصات')}</h3><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{b.specialties.map((s, i) => <span key={i} style={{ background: '#f3f4f6', color: '#4b5563', fontSize: 13, padding: '5px 14px', borderRadius: 9999 }}>{s}</span>)}</div></div>}
         {/* Action buttons - row 1: Call & Website */}
@@ -1202,7 +1224,7 @@ export default function ZghartaTourismApp() {
                 <p style={{ fontWeight: 600, fontSize: 13, color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isRTL ? (n.nameAr || n.name) : n.name}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <span style={{ fontSize: 11, color: '#9ca3af' }}>{n.dist < 1 ? `${(n.dist * 1000).toFixed(0)}m` : `${n.dist.toFixed(1)}km`}</span>
-                  {n.rating && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {n.rating}</span>}
+                  {n.rating > 0 ? <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {n.rating}</span> : null}
                 </div>
               </div>
             </div>)}
@@ -1221,9 +1243,9 @@ export default function ZghartaTourismApp() {
   if (error) return <div style={{ maxWidth: 448, margin: '0 auto', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', padding: 24 }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div><h2 style={{ color: '#ef4444', marginBottom: 8 }}>{t('Connection Error', 'خطأ في الاتصال')}</h2><p style={{ color: '#6b7280', marginBottom: 16, fontSize: 14 }}>{error}</p><button onClick={fetchData} style={{ padding: '12px 24px', background: '#10b981', color: 'white', border: 'none', borderRadius: 9999, cursor: 'pointer' }}>{t('Try Again', 'حاول مجدداً')}</button></div></div>;
 
   return <div style={{ maxWidth: 448, margin: '0 auto', background: 'white', minHeight: '100vh', ...(tab === 'map' ? { height: '100vh', overflow: 'hidden' } : {}), fontFamily: isRTL ? 'Tajawal, sans-serif' : 'Inter, system-ui, sans-serif' }}>
-    {tab === 'guide' && <GuideScreen />}
-    {tab === 'explore' && <ExploreScreen />}
-    {tab === 'events' && <EventsScreen />}
+    {tab === 'guide' && <GuideScreen places={places} businesses={businesses} events={events} lang={lang} isRTL={isRTL} t={t} setSelPlace={setSelPlace} setSelBiz={setSelBiz} setCatFilter={setCatFilter} setTab={setTab} setMapVillageFilter={setMapVillageFilter} setLang={setLang} />}
+    {tab === 'explore' && <ExploreScreen places={places} businesses={businesses} lang={lang} isRTL={isRTL} t={t} catFilter={catFilter} setCatFilter={setCatFilter} mapVillageFilter={mapVillageFilter} setMapVillageFilter={setMapVillageFilter} setSelPlace={setSelPlace} setSelBiz={setSelBiz} toggleFav={toggleFav} isFav={isFav} />}
+    {tab === 'events' && <EventsScreen events={events} lang={lang} isRTL={isRTL} t={t} setSelEvent={setSelEvent} screenContainer={screenContainer} />}
     <div style={tab !== 'map' ? { display: 'none' } : undefined}>{MapScreen()}</div>
     {tab === 'favorites' && FavsScreen()}
     {selPlace && <PlaceModal place={selPlace} onClose={() => setSelPlace(null)} />}
